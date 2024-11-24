@@ -21,7 +21,7 @@ A Flutter package to encode and decode lrc.
 * You can use it to parse music lyric String (.lrc), lrc look like:
     *   [00.11.22] hello coolight
 * And than return a object for reading and writing easily.
-* `my_lyric` support so many lrc standard and non-standard format,
+* `lyric_xx` support so many lrc standard and non-standard format,
 * we follow `casually decode` and `strictly encode`
 * such as:
 * info:
@@ -60,7 +60,7 @@ my_lyric:
 ```
 * import when you want to use this package:
 ```dart
-import 'package:my_lyric/MyLyric.dart';
+import 'package:lyric_xx/lyric_xx.dart';
 ```
 
 ## Usage
@@ -75,7 +75,7 @@ void test() {
 [00:30.33]趁着醉意上心头
 [00:33.28]表达我所有感受
 """;
-    final relist = MyLyric_c.decodeLrcString(
+    final relist = Lyricxx_c.decodeLrcString(
         lrcStr,
     );
 }
@@ -85,7 +85,7 @@ void test() {
 void test() async {
     // lrc object list
     final List<LyricSrcItemEntity_c> lrcList = [];
-    final lrcStr = MyLyric_c.encodeLrcString(
+    final lrcStr = Lyricxx_c.encodeLrcString(
         lrcList,
     );
     /// write to file:

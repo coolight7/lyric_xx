@@ -19,7 +19,7 @@ LRC歌词格式的编解码包
     * [00.11.22] hello coolight
     * [时间] 歌词内容
 * 这个包可以帮助你简便地将lrc格式的 歌词字符串`String` 解析成一个 歌词结构体数组 `List<LyricObject>` 方便你的程序读写。
-* `my_lyric` 插件支持了许多标准和非标准的lrc格式, 
+* `lyric_xx` 插件支持了许多标准和非标准的lrc格式, 
 * 我们的编解码遵循着 `宽入窄出` 的原则：
   * 解析时容错拉满，尽量提供对各种格式的兼容
   * 编码时只遵循标准格式，以确保其他程序能够正常解析
@@ -92,7 +92,7 @@ my_lyric:
 ```
 * 在你想使用这个包的dart文件内，导入:
 ```dart
-import 'package:my_lyric/MyLyric.dart';
+import 'package:lyric_xx/lyric_xx.dart';
 ```
 
 ## 示例

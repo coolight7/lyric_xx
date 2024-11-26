@@ -1,3 +1,3 @@
-library my_lyric;
+library lyric_xx;
 
 export 'Lyricxx.dart';

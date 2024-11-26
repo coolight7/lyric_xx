@@ -77,7 +77,7 @@ LRC歌词格式的编解码包
 ### 转义字符
 * 另外，解码info/lyric时都支持`html转义字符`，例如：
 ```dart
-final lyric = MyLyric_c.decodeLrcString(
+final lyric = Lyricxx_c.decodeLrcString(
   "[00:27.000]洛天依&#60;&quot;&#62;",  // [00:27.000]洛天依<">
   parseHtmlEscape: true,               // 启用转换html转义
 );
@@ -88,7 +88,7 @@ print(lyric.info_ti); // 洛天依<">
 
 * 安装这个包, 请在 `pubspec.yaml` 文件内添加这一行:
 ```yaml
-my_lyric: 
+lyric_xx: 
 ```
 * 在你想使用这个包的dart文件内，导入:
 ```dart
@@ -107,7 +107,7 @@ void test() {
 [00:30.33]趁着醉意上心头
 [00:33.28]表达我所有感受
 """;
-    final relist = MyLyric_c.decodeLrcString(
+    final relist = Lyricxx_c.decodeLrcString(
         lrcStr,
     );
 }
@@ -117,7 +117,7 @@ void test() {
 void test() async {
     // lrc object list
     final List<LyricSrcItemEntity_c> lrcList = [];
-    final lrcStr = MyLyric_c.encodeLrcString(
+    final lrcStr = Lyricxx_c.encodeLrcString(
         lrcList,
     );
     /// write to file:

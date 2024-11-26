@@ -56,7 +56,7 @@ lyricContent1 translate
 
 * install this package, add this line in your `pubspec.yaml`:
 ```
-my_lyric: 
+lyric_xx: 
 ```
 * import when you want to use this package:
 ```dart

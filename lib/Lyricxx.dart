@@ -287,13 +287,20 @@ class _ParseLyricTimeItem_c {
 
 /// TODO: 逐字歌词支持
 class Lyricxx_c {
-  /// 解析单行歌词
-  /// * [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
-  /// * [parseHtmlEscape] 转换html的转义字符
+  /// ## 解析单行歌词
+  /// - [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
+  /// - [parseHtmlEscape] 转换html的转义字符
+  /// - [tryAutoDistinguishByWord] :
+  ///     - true 如果单行歌词中包含了多个不连续的时间戳，尝试自动
+  /// 根据单词长度区分为逐字歌词时间戳还是逐行歌词时间戳并自动换行
+  ///     - false 对于不连续的时间戳统一认为是逐字歌词时间戳
+  /// - [tryAutoDistinguishLength] 根据单词长度区分
   static List<_ParseLyricObj_c>? _decodeLrcStrLine(
     String line, {
     bool removeEmptyLine = true,
     bool parseHtmlEscape = true,
+    bool tryAutoDistinguishByWord = true,
+    int tryAutoDistinguishLength = 5,
   }) {
     if (parseHtmlEscape) {
       // 转义部分html字符
@@ -343,7 +350,7 @@ class Lyricxx_c {
     if (result.isNotEmpty) {
       // 将被返回的歌词数组
       final relist = <_ParseLyricObj_c>[];
-      // 将[line]分段存入[resultList]
+      // 将[line]按时间戳、内容分段保持顺序存入[resultList]
       final resultList = <_ParseLyricTimeItem_c>[];
       // 记录上一次操作的尾部坐标
       int lastIndex = 0;
@@ -387,27 +394,46 @@ class Lyricxx_c {
           )),
         ));
       }
-      // 记录过往最近的一个[content]
+      // 记录过往最近的一个[content]，辅助后置时间戳使用
       String? last_content;
+      // 记录当前时间戳是否是连续时间戳之一
+      bool currentIsContinuousTimeTag = false;
       for (int i = 0; i < resultList.length; ++i) {
         final item = resultList[i];
         if (null != item.timeTag) {
           // 是时间戳 [timeTag]
           // 先从[item]的位置向右寻找第一个歌词内容，如果没有则从[item]的位置向左寻找
           String? content;
+          bool isWordTime = true;
           for (int j = i + 1; j < resultList.length; ++j) {
             final current = resultList[j];
             if (null != current.content) {
-              // 找到
+              // 找到最近的歌词内容
+              if (i + 1 != j) {
+                // 歌词时间和内容不相邻
+                isWordTime = false;
+                currentIsContinuousTimeTag = true;
+              } else if (currentIsContinuousTimeTag) {
+                // 当前时间戳和内容是相邻，但时间戳和之前的时间戳是连续
+                isWordTime = false;
+              }
               content = current.content;
               break;
             }
           }
-          content ??= last_content ?? "";
+          if (null == content) {
+            // 被作为后置时间戳时不认为是逐字歌词
+            content = last_content ?? "";
+            isWordTime = false;
+          }
           if (removeEmptyLine && content.isEmpty) {
             // 移除内容为空的歌词行
             continue;
           }
+          if (isWordTime && tryAutoDistinguishByWord) {
+            // 再次判断，尝试自动区分逐字歌词和逐行歌词
+            isWordTime = (content.length <= tryAutoDistinguishLength);
+          } 
           // 非空行，添加
           final timeTag = item.timeTag!;
           var mm = int.tryParse(timeTag[1] ?? "") ?? 0;
@@ -434,12 +460,17 @@ class Lyricxx_c {
             }
           }
           final time = (mm * 60) + ss + ff;
+          if (isWordTime) {
+            // TODO: 当前是逐字歌词，添加记录、合并内容
+          }
           relist.add(_ParseLyricObj_c(
             type: _ParseLyricType_e.Lrc,
             content: content,
             time: time,
           ));
+          currentIsContinuousTimeTag = true;
         } else {
+          currentIsContinuousTimeTag = false;
           // 是歌词内容 [content]
           last_content = item.content;
         }
@@ -460,9 +491,15 @@ class Lyricxx_c {
     }
   }
 
-  /// * 解析歌词文件 .lrc
-  /// * [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
-  /// * [limitInfoType] 限制需要的 info 类型，默认不传入则接收所有的 info
+  /// ## 解析歌词文件 .lrc
+  /// - [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
+  /// - [limitInfoType] 限制需要的 info 类型，默认不传入则接收所有的 info
+  /// - 如果一行包含多个时间戳：
+  ///   - 如果每个字或词语携带了多个时间，则认为是多次逐行歌词的时间戳
+  ///   - 如果总行数 <= [3]：
+  ///     - 单行内的一个时间携带的内容长度 < [5]，则认为是逐字歌词时间戳，保持在同一行
+  ///     - 否则认为是逐行歌词时间戳，并在该位置自动换行
+  ///   - 如果总行数 >  [3]，则认为所有单行内的单个时间戳都表示逐字歌词时间戳，保持在同一行
   static LyricSrcEntity_c decodeLrcString(
     String lrcStr, {
     bool removeEmptyLine = true,
@@ -484,6 +521,8 @@ class Lyricxx_c {
         lrcArr[i],
         removeEmptyLine: removeEmptyLine,
         parseHtmlEscape: parseHtmlEscape,
+        tryAutoDistinguishByWord: (lrcArr.length <= 3),
+        tryAutoDistinguishLength: 5,
       );
       if (null == relist) {
         continue;

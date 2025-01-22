@@ -6,6 +6,52 @@ import 'package:html_unescape_xx/html_unescape.dart';
 import 'package:string_util_xx/string_util_xx.dart';
 import 'package:util_xx/util_xx.dart';
 
+class LyricSrcTime_c {
+  final double time;
+  final int index;
+
+  const LyricSrcTime_c({
+    required this.time,
+    required this.index,
+  });
+
+  factory LyricSrcTime_c.fromJson(Map<String, dynamic> json) {
+    final json_time = json["time"];
+    double time = 0;
+    if (json_time is double) {
+      time = json_time;
+    } else if (json_time is int) {
+      time = json_time.toDouble();
+    }
+    return LyricSrcTime_c(
+      time: time,
+      index: json["index"] ?? -1,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      "time": time,
+      "index": index,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return (other is LyricSrcTime_c && other.index == index && other.time == time);
+  }
+
+  @override
+  int get hashCode => (index.hashCode + time.hashCode);
+
+  LyricSrcTime_c copyWith({double? time, int? index}) {
+    return LyricSrcTime_c(
+      time: time ?? this.time,
+      index: index ?? this.index,
+    );
+  }
+}
+
 class LyricSrcItemEntity_c {
   /// * 歌词时间戳，单位：秒
   /// * 如果是翻译，该值为负
@@ -14,10 +60,18 @@ class LyricSrcItemEntity_c {
   /// 歌词内容
   String content = "";
 
+  List<LyricSrcTime_c> timelist;
+
+  // 这一行是否为逐字歌词
+  bool get isVerbatimTime => (timelist.length > 1);
+  // 这一行是否为逐行歌词
+  bool get isLineTime => (false == isVerbatimTime);
+
   LyricSrcItemEntity_c({
     this.time = 0,
     this.content = "",
-  });
+    List<LyricSrcTime_c>? timelist,
+  }) : timelist = timelist ?? [];
 
   /// 将时间格式化为标准 lrc 格式的时间
   String get timeStr => Lyricxx_c.formatLyricTimeStr(time);
@@ -30,23 +84,33 @@ class LyricSrcItemEntity_c {
     } else if (json_time is int) {
       time = json_time.toDouble();
     }
-    return LyricSrcItemEntity_c(
+    final result = LyricSrcItemEntity_c(
       time: time,
       content: json["content"] ?? "",
     );
+    final list = json["timelist"];
+    if (list is List && list.isNotEmpty) {
+      for (final item in list) {
+        result.timelist.add(LyricSrcTime_c.fromJson(item));
+      }
+    }
+    return result;
   }
 
   Map<String, dynamic> toJson() {
-    final remap = <String, dynamic>{};
-    remap["time"] = time;
-    remap["content"] = content;
-    return remap;
+    return <String, dynamic>{
+      "time": time,
+      "content": content,
+      if (timelist.isNotEmpty) "timelist": timelist,
+    };
   }
 
-  LyricSrcItemEntity_c copyWith({double? time, String? content}) {
+  LyricSrcItemEntity_c copyWith(
+      {double? time, String? content, List<LyricSrcTime_c>? timelist,}) {
     return LyricSrcItemEntity_c(
       time: time ?? this.time,
       content: content ?? this.content,
+      timelist: timelist ?? this.timelist,
     );
   }
 }
@@ -262,22 +326,24 @@ class _ParseLyricObj_c {
   final _ParseLyricType_e type;
   final String? infoKey;
   final double? time;
-  final String content;
+  String content;
+  List<LyricSrcTime_c> timelist;
 
   _ParseLyricObj_c({
     this.infoKey,
     required this.type,
     required this.content,
     this.time,
-  });
+    List<LyricSrcTime_c>? timelist,
+  }) : timelist = timelist ?? [];
 }
 
-class _ParseLyricTimeItem_c {
+class _ParseLyricTagItem_c {
   final int start, length;
   final RegExpMatch? timeTag;
   final String? content;
 
-  _ParseLyricTimeItem_c({
+  _ParseLyricTagItem_c({
     required this.start,
     required this.length,
     required this.timeTag,
@@ -350,8 +416,10 @@ class Lyricxx_c {
     if (result.isNotEmpty) {
       // 将被返回的歌词数组
       final relist = <_ParseLyricObj_c>[];
+      // 记录最近的逐行歌词项，用于附加逐字歌词
+      _ParseLyricObj_c? lastLrcItem;
       // 将[line]按时间戳、内容分段保持顺序存入[resultList]
-      final resultList = <_ParseLyricTimeItem_c>[];
+      final resultList = <_ParseLyricTagItem_c>[];
       // 记录上一次操作的尾部坐标
       int lastIndex = 0;
       for (final item in result) {
@@ -367,7 +435,7 @@ class Lyricxx_c {
           // 保留空字符串，确保时间对应的[content]正确，比如：
           // [00:37][000:47.11]abc [000:50.11] [00:57:33]cool
           // 应保留[000:50.11]对应一个空字符串，否则会被误认为和后面的[00:57:33]cool是一起的
-          resultList.add(_ParseLyricTimeItem_c(
+          resultList.add(_ParseLyricTagItem_c(
             start: start,
             length: start - lastIndex,
             timeTag: null,
@@ -375,7 +443,7 @@ class Lyricxx_c {
           ));
         }
         // 添加[item]
-        resultList.add(_ParseLyricTimeItem_c(
+        resultList.add(_ParseLyricTagItem_c(
           start: start,
           length: end - start,
           timeTag: item,
@@ -385,7 +453,7 @@ class Lyricxx_c {
       }
       if (lastIndex < line.length) {
         // 最后一段字符串作为[content]
-        resultList.add(_ParseLyricTimeItem_c(
+        resultList.add(_ParseLyricTagItem_c(
           start: lastIndex,
           length: line.length - lastIndex,
           timeTag: null,
@@ -433,7 +501,7 @@ class Lyricxx_c {
           if (isWordTime && tryAutoDistinguishByWord) {
             // 再次判断，尝试自动区分逐字歌词和逐行歌词
             isWordTime = (content.length <= tryAutoDistinguishLength);
-          } 
+          }
           // 非空行，添加
           final timeTag = item.timeTag!;
           var mm = int.tryParse(timeTag[1] ?? "") ?? 0;
@@ -460,14 +528,37 @@ class Lyricxx_c {
             }
           }
           final time = (mm * 60) + ss + ff;
+          // TODO: 当前是逐字歌词，添加记录、合并内容
           if (isWordTime) {
-            // TODO: 当前是逐字歌词，添加记录、合并内容
+            if (null == lastLrcItem) {
+              // 逐字歌词的开头
+              lastLrcItem = _ParseLyricObj_c(
+                  type: _ParseLyricType_e.Lrc,
+                  content: content,
+                  time: time,
+                  timelist: [
+                    LyricSrcTime_c(
+                      time: time,
+                      index: 0,
+                    )
+                  ]);
+              relist.add(lastLrcItem);
+            } else {
+              // 附加内容到前面的逐字歌词中, 并记录起始时间
+              lastLrcItem.timelist.add(LyricSrcTime_c(
+                time: time,
+                index: lastLrcItem.content.length,
+              ));
+              lastLrcItem.content += content;
+            }
+          } else {
+            lastLrcItem = null;
+            relist.add(_ParseLyricObj_c(
+              type: _ParseLyricType_e.Lrc,
+              content: content,
+              time: time,
+            ));
           }
-          relist.add(_ParseLyricObj_c(
-            type: _ParseLyricType_e.Lrc,
-            content: content,
-            time: time,
-          ));
           currentIsContinuousTimeTag = true;
         } else {
           currentIsContinuousTimeTag = false;
@@ -508,20 +599,20 @@ class Lyricxx_c {
   }) {
     final lrcObj = LyricSrcEntity_c();
     // 按行切割
-    var lrcArr = lrcStr.split(RegExp(r"\n|\r"));
-    for (int i = 0; i < lrcArr.length; ++i) {
+    final lrcList = lrcStr.split(RegExp(r"\n|\r"));
+    for (int i = 0; i < lrcList.length; ++i) {
       // 去掉空白符
-      StringUtilxx_c.removeAllSpace(lrcArr[i]);
-      if (lrcArr[i].isEmpty) {
+      StringUtilxx_c.removeAllSpace(lrcList[i]);
+      if (lrcList[i].isEmpty) {
         // 如果是空行则丢弃这一行
         continue;
       }
       // 逐行解析
       final relist = _decodeLrcStrLine(
-        lrcArr[i],
+        lrcList[i],
         removeEmptyLine: removeEmptyLine,
         parseHtmlEscape: parseHtmlEscape,
-        tryAutoDistinguishByWord: (lrcArr.length <= 3),
+        tryAutoDistinguishByWord: (lrcList.length <= 3),
         tryAutoDistinguishLength: 5,
       );
       if (null == relist) {
@@ -533,6 +624,7 @@ class Lyricxx_c {
             lrcObj.lrc.add(LyricSrcItemEntity_c(
               time: line.time ?? -1,
               content: line.content,
+              timelist: line.timelist,
             ));
             break;
           case _ParseLyricType_e.Info:

@@ -38,7 +38,9 @@ class LyricSrcTime_c {
 
   @override
   bool operator ==(Object other) {
-    return (other is LyricSrcTime_c && other.index == index && other.time == time);
+    return (other is LyricSrcTime_c &&
+        other.index == index &&
+        other.time == time);
   }
 
   @override
@@ -105,8 +107,11 @@ class LyricSrcItemEntity_c {
     };
   }
 
-  LyricSrcItemEntity_c copyWith(
-      {double? time, String? content, List<LyricSrcTime_c>? timelist,}) {
+  LyricSrcItemEntity_c copyWith({
+    double? time,
+    String? content,
+    List<LyricSrcTime_c>? timelist,
+  }) {
     return LyricSrcItemEntity_c(
       time: time ?? this.time,
       content: content ?? this.content,

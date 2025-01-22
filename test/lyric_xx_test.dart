@@ -181,6 +181,66 @@ void test_parse() {
     expect(lyric.getLrcItemByIndex(0)?.time, 0);
   });
 
+  test("解析逐字歌词", () {
+    var lyric = Lyricxx_c.decodeLrcString("[00:27.00]cool[00:28.00]light");
+    {
+      expect(lyric.lrc.length, 1);
+      expect(lyric.getLrcItemByIndex(0)?.time, 27);
+      expect(lyric.getLrcItemByIndex(0)?.content, "coollight");
+      expect(lyric.getLrcItemByIndex(0)?.isVerbatimTime, true);
+      final timelist = lyric.getLrcItemByIndex(0)?.timelist;
+      expect(timelist!.length, 2);
+      expect(timelist[0].index, 0);
+      expect(timelist[0].time, 27);
+      expect(timelist[1].index, 4);
+      expect(timelist[1].time, 28);
+    }
+    {
+      // 多行逐字歌词，混合逐行歌词
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]cool[00:28.00]light[00:29.00]wow
+[00:29.50]愿得一人心
+[00:30.00]music[00:32.00]video[00:34.00]audio
+""");
+      expect(lyric.lrc.length, 3);
+      expect(lyric.getLrcItemByIndex(0)?.time, 27);
+      expect(lyric.getLrcItemByIndex(0)?.content, "coollightwow");
+      expect(lyric.getLrcItemByIndex(0)?.timelist.length, 3);
+      expect(lyric.getLrcItemByIndex(1)?.time, 29 + 50.0 / 100);
+      expect(lyric.getLrcItemByIndex(1)?.content, "愿得一人心");
+      expect(lyric.getLrcItemByIndex(1)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(2)?.time, 30);
+      expect(lyric.getLrcItemByIndex(2)?.content, "musicvideoaudio");
+      expect(lyric.getLrcItemByIndex(2)?.timelist.length, 3);
+    }
+    {
+      // 逐字歌词，包含无时间翻译
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]cool[00:28.00]light[00:29.00]wow
+翻译翻译，什么叫歌词
+[00:30.00]music[00:32.00]video[00:34.00]audio
+""");
+      expect(lyric.lrc.length, 3);
+      expect(lyric.getLrcItemByIndex(0)?.time, 27);
+      expect(lyric.getLrcItemByIndex(0)?.content, "coollightwow");
+      expect(lyric.getLrcItemByIndex(0)?.timelist, [
+        LyricSrcTime_c(time: 27, index: 0),
+        LyricSrcTime_c(time: 28, index: 4),
+        LyricSrcTime_c(time: 29, index: 9)
+      ]);
+      expect(lyric.getLrcItemByIndex(1)?.time, -1);
+      expect(lyric.getLrcItemByIndex(1)?.content, "翻译翻译，什么叫歌词");
+      expect(lyric.getLrcItemByIndex(1)?.timelist.isEmpty, true);
+      expect(lyric.getLrcItemByIndex(2)?.time, 30);
+      expect(lyric.getLrcItemByIndex(2)?.content, "musicvideoaudio");
+      expect(lyric.getLrcItemByIndex(2)?.timelist, [
+        LyricSrcTime_c(time: 30, index: 0),
+        LyricSrcTime_c(time: 32, index: 5),
+        LyricSrcTime_c(time: 34, index: 10)
+      ]);
+    }
+  });
+
   test("翻译歌词判断", () {
     LyricSrcEntity_c lyric;
     // 同时间

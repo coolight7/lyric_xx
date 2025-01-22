@@ -200,18 +200,22 @@ void test_parse() {
       lyric = Lyricxx_c.decodeLrcString(
           """[00:27.00]cool[00:28.00]light[00:29.00]wow
 [00:29.50]愿得一人心
+白首不分离
 [00:30.00]music[00:32.00]video[00:34.00]audio
 """);
-      expect(lyric.lrc.length, 3);
+      expect(lyric.lrc.length, 4);
       expect(lyric.getLrcItemByIndex(0)?.time, 27);
       expect(lyric.getLrcItemByIndex(0)?.content, "coollightwow");
       expect(lyric.getLrcItemByIndex(0)?.timelist.length, 3);
       expect(lyric.getLrcItemByIndex(1)?.time, 29 + 50.0 / 100);
       expect(lyric.getLrcItemByIndex(1)?.content, "愿得一人心");
       expect(lyric.getLrcItemByIndex(1)?.isLineTime, true);
-      expect(lyric.getLrcItemByIndex(2)?.time, 30);
-      expect(lyric.getLrcItemByIndex(2)?.content, "musicvideoaudio");
-      expect(lyric.getLrcItemByIndex(2)?.timelist.length, 3);
+      expect(lyric.getLrcItemByIndex(2)?.time, -1);
+      expect(lyric.getLrcItemByIndex(2)?.content, "白首不分离");
+      expect(lyric.getLrcItemByIndex(2)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(3)?.time, 30);
+      expect(lyric.getLrcItemByIndex(3)?.content, "musicvideoaudio");
+      expect(lyric.getLrcItemByIndex(3)?.timelist.length, 3);
     }
     {
       // 逐字歌词，包含无时间翻译
@@ -238,6 +242,28 @@ void test_parse() {
         LyricSrcTime_c(time: 32, index: 5),
         LyricSrcTime_c(time: 34, index: 10)
       ]);
+    }
+    {
+      // 由于总行数小于3，且单词长度大于5，逐行歌词，包含无时间翻译
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]testfaild1[00:28.00]testfaild2[00:29.00]testfaild3
+翻译翻译，什么叫歌词
+""");
+      expect(lyric.lrc.length, 4);
+    }
+    {
+      // 由于总行数大于3，且单词长度大于5，逐字歌词，包含无时间翻译
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]testfaild1[00:28.00]testfaild2[00:29.00]testfaild3
+翻译翻译，什么叫歌词
+愿得一人心，白首不分离
+听，海哭的声音
+""");
+      expect(lyric.lrc.length, 4);
+      expect(lyric.getLrcItemByIndex(0)?.timelist.length, 3);
+      expect(lyric.getLrcItemByIndex(1)?.timelist.length, 0);
+      expect(lyric.getLrcItemByIndex(2)?.timelist.length, 0);
+      expect(lyric.getLrcItemByIndex(3)?.timelist.length, 0);
     }
   });
 

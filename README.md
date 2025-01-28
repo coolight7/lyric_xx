@@ -20,7 +20,7 @@ A Flutter package to encode and decode lrc.
 
 * You can use it to parse music lyric String (.lrc), lrc look like:
     *   [00.11.22] hello coolight
-* And than return a object for reading and writing easily.
+* And then return a object for reading and writing easily.
 * `lyric_xx` support so many lrc standard and non-standard format,
 * we follow `casually decode` and `strictly encode`
 * such as:

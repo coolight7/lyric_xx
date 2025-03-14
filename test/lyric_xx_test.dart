@@ -265,6 +265,34 @@ void test_parse() {
       expect(lyric.getLrcItemByIndex(2)?.timelist.length, 0);
       expect(lyric.getLrcItemByIndex(3)?.timelist.length, 0);
     }
+    {
+      // 逐字歌词，包含结尾时间戳
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]cool[00:28.00]light[00:29.00]wow[00:30.00]
+翻译翻译，什么叫歌词
+[00:31.00]music[00:32.00]video[00:34.00]audio[00:35.00]
+""");
+      expect(lyric.lrc.length, 3);
+      expect(lyric.getLrcItemByIndex(0)?.time, 27);
+      expect(lyric.getLrcItemByIndex(0)?.content, "coollightwow");
+      expect(lyric.getLrcItemByIndex(0)?.timelist, [
+        LyricSrcTime_c(time: 27, index: 0),
+        LyricSrcTime_c(time: 28, index: 4),
+        LyricSrcTime_c(time: 29, index: 9),
+        LyricSrcTime_c(time: 30, index: 12),
+      ]);
+      expect(lyric.getLrcItemByIndex(1)?.time, -1);
+      expect(lyric.getLrcItemByIndex(1)?.content, "翻译翻译，什么叫歌词");
+      expect(lyric.getLrcItemByIndex(1)?.timelist.isEmpty, true);
+      expect(lyric.getLrcItemByIndex(2)?.time, 31);
+      expect(lyric.getLrcItemByIndex(2)?.content, "musicvideoaudio");
+      expect(lyric.getLrcItemByIndex(2)?.timelist, [
+        LyricSrcTime_c(time: 31, index: 0),
+        LyricSrcTime_c(time: 32, index: 5),
+        LyricSrcTime_c(time: 34, index: 10),
+        LyricSrcTime_c(time: 35, index: 15),
+      ]);
+    }
   });
 
   test("翻译歌词判断", () {

@@ -356,7 +356,6 @@ class _ParseLyricTagItem_c {
   });
 }
 
-/// TODO: 逐字歌词支持
 class Lyricxx_c {
   /// ## 解析单行歌词
   /// - [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
@@ -421,7 +420,7 @@ class Lyricxx_c {
     if (result.isNotEmpty) {
       // 将被返回的歌词数组
       final relist = <_ParseLyricObj_c>[];
-      // 记录最近的逐行歌词项，用于附加逐字歌词
+      // 记录最近的一行歌词项，用于附加逐字歌词
       _ParseLyricObj_c? lastLrcItem;
       // 将[line]按时间戳、内容分段保持顺序存入[resultList]
       final resultList = <_ParseLyricTagItem_c>[];
@@ -494,12 +493,20 @@ class Lyricxx_c {
               break;
             }
           }
+          bool allowRemove = true;
           if (null == content) {
-            // 被作为后置时间戳时不认为是逐字歌词
-            content = last_content ?? "";
-            isWordTime = false;
+            if (null != lastLrcItem && lastLrcItem.timelist.isNotEmpty) {
+              // 是一行逐字歌词的结尾时间点
+              content = "";
+              isWordTime = true;
+              allowRemove = false;
+            } else {
+              // 被作为后置时间戳时不认为是逐字歌词
+              content = last_content ?? "";
+              isWordTime = false;
+            }
           }
-          if (removeEmptyLine && content.isEmpty) {
+          if (allowRemove && removeEmptyLine && content.isEmpty) {
             // 移除内容为空的歌词行
             continue;
           }

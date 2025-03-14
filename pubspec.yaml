@@ -1,6 +1,6 @@
 name: lyric_xx
 description: A Flutter package to encode and decode lrc.
-version: 0.6.0
+version: 0.6.1
 homepage: https://github.com/coolight7/lyric_xx
 
 environment:

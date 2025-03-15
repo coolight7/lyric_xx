@@ -357,6 +357,44 @@ class _ParseLyricTagItem_c {
 }
 
 class Lyricxx_c {
+  /// 移除字符串两边的空白符号，两边各保留一个
+  static String removeBetweenSpaceSaveOne(
+    String str, {
+    bool removeLine = true,
+  }) {
+    if (str.isEmpty) {
+      return str;
+    }
+    int left = 0, right = str.length - 1;
+    for (; right >= left; --right) {
+      if (str[right] != ' ' &&
+          str[right] != '\t' &&
+          (false == removeLine || (str[right] != '\r' && str[right] != '\n'))) {
+        break;
+      }
+    }
+    for (; left <= right; ++left) {
+      if (str[left] != ' ' &&
+          str[left] != '\t' &&
+          (false == removeLine || (str[left] != '\r' && str[left] != '\n'))) {
+        break;
+      }
+    }
+    bool leftSpace = (left != 0), rightSpace = (right != (str.length - 1));
+    if (left <= right) {
+      return (leftSpace ? ' ' : '') +
+          str.substring(left, right + 1) +
+          (rightSpace ? ' ' : '');
+    } else {
+      // 移除后是空字符串
+      if (leftSpace || rightSpace) {
+        // 左右原本有空白符，保留一个
+        return " ";
+      }
+      return "";
+    }
+  }
+
   /// ## 解析单行歌词
   /// - [removeEmptyLine] 是否删除包含歌词时间，但内容却为空的行
   /// - [parseHtmlEscape] 转换html的转义字符
@@ -432,11 +470,11 @@ class Lyricxx_c {
         if (start > lastIndex) {
           // [item]之前有[content]
           // 截取[content]加入分段列表
-          final content = StringUtilxx_c.removeBetweenSpace(line.substring(
+          final content = removeBetweenSpaceSaveOne(line.substring(
             lastIndex,
             start,
           ));
-          // 保留空字符串，确保时间对应的[content]正确，比如：
+          // 逐字歌词保留空字符串，确保时间对应的[content]正确，比如：
           // [00:37][000:47.11]abc [000:50.11] [00:57:33]cool
           // 应保留[000:50.11]对应一个空字符串，否则会被误认为和后面的[00:57:33]cool是一起的
           resultList.add(_ParseLyricTagItem_c(
@@ -461,7 +499,7 @@ class Lyricxx_c {
           start: lastIndex,
           length: line.length - lastIndex,
           timeTag: null,
-          content: StringUtilxx_c.removeBetweenSpace(line.substring(
+          content: removeBetweenSpaceSaveOne(line.substring(
             lastIndex,
           )),
         ));
@@ -506,13 +544,17 @@ class Lyricxx_c {
               isWordTime = false;
             }
           }
-          if (allowRemove && removeEmptyLine && content.isEmpty) {
-            // 移除内容为空的歌词行
-            continue;
-          }
           if (isWordTime && tryAutoDistinguishByWord) {
             // 再次判断，尝试自动区分逐字歌词和逐行歌词
             isWordTime = (content.length <= tryAutoDistinguishLength);
+          }
+          if (false == isWordTime) {
+            // 逐行歌词不要保留两边的空白符号，再次削减两边的空白符号
+            content = StringUtilxx_c.removeBetweenSpace(content);
+          }
+          if (allowRemove && removeEmptyLine && content.isEmpty) {
+            // 移除内容为空的歌词行
+            continue;
           }
           // 非空行，添加
           final timeTag = item.timeTag!;
@@ -540,7 +582,7 @@ class Lyricxx_c {
             }
           }
           final time = (mm * 60) + ss + ff;
-          // TODO: 当前是逐字歌词，添加记录、合并内容
+          // 是逐字歌词，添加记录、合并内容
           if (isWordTime) {
             if (null == lastLrcItem) {
               // 逐字歌词的开头
@@ -575,10 +617,20 @@ class Lyricxx_c {
         } else {
           currentIsContinuousTimeTag = false;
           // 是歌词内容 [content]
-          last_content = item.content;
+          last_content = (null != item.content)
+              ? StringUtilxx_c.removeBetweenSpace(item.content!)
+              : null;
         }
       }
-      return relist;
+      bool avail = false;
+      for (final item in relist) {
+        if (item.content.isNotEmpty && item.content != ' ') {
+          avail = true;
+        }
+      }
+      if (avail) {
+        return relist;
+      }
     } else {
       // 无时间歌词
       final content = StringUtilxx_c.removeBetweenSpace(line);
@@ -592,6 +644,7 @@ class Lyricxx_c {
         )
       ];
     }
+    return null;
   }
 
   /// ## 解析歌词文件 .lrc

@@ -747,8 +747,12 @@ class Lyricxx_c {
               timelist: line.timelist,
             );
             lrcObj.lrc.add(item);
+            // 确定时间戳类型
             if (item.isVerbatimTime) {
               lrcObj.timeType = LyricTimeType_e.Verbatim;
+            } else if (item.time > 0 &&
+                lrcObj.timeType == LyricTimeType_e.Unknown) {
+              lrcObj.timeType = LyricTimeType_e.Line;
             }
             break;
           case _ParseLyricType_e.Info:

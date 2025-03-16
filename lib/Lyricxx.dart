@@ -451,7 +451,8 @@ class Lyricxx_c {
     /// * 支持 [mm:ss.ff]
     /// * 支持指定数值正负号+-，但出现负号时，将会将其时间置零
     /// * 其中ff ~ (-100, +1000)，超出范围将被置0
-    const tagTimeItemReg = r"\[([+-]?\d+)\:([+-]?\d+)([.:]([+-]?\d+))?\]";
+    const tagTimeItemReg =
+        r"[\[\<]([+-]?\d+)\:([+-]?\d+)([.:]([+-]?\d+))?[\]\>]";
 
     /// 匹配歌词时间戳
     final result = RegExp(tagTimeItemReg).allMatches(line);

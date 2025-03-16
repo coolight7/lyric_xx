@@ -6,6 +6,37 @@ import 'package:html_unescape_xx/html_unescape.dart';
 import 'package:string_util_xx/string_util_xx.dart';
 import 'package:util_xx/util_xx.dart';
 
+enum LyricTimeType_e {
+  Unknown,
+  Verbatim,
+  Line,
+}
+
+class LyricTimeType_c {
+  static int toInt(LyricTimeType_e type) {
+    switch (type) {
+      case LyricTimeType_e.Unknown:
+        return 0;
+      case LyricTimeType_e.Verbatim:
+        return 1;
+      case LyricTimeType_e.Line:
+        return 2;
+    }
+  }
+
+  static LyricTimeType_e? toEnum(int? type) {
+    switch (type) {
+      case 0:
+        return LyricTimeType_e.Unknown;
+      case 1:
+        return LyricTimeType_e.Verbatim;
+      case 2:
+        return LyricTimeType_e.Line;
+    }
+    return null;
+  }
+}
+
 class LyricSrcTime_c {
   final double time;
   final int index;
@@ -138,9 +169,18 @@ class LyricSrcEntity_c {
   /// 歌词内容
   List<LyricSrcItemEntity_c> lrc;
 
+  LyricTimeType_e timeType;
+
+  /// ## 是否 信息[info] 和 歌词[lrc] 都为空
+  bool get isEmpty => (info.isEmpty && lrc.isEmpty);
+
+  /// ## 是否 信息[info] 和 歌词[lrc] 中至少一方非空
+  bool get isNotEmpty => (info.isNotEmpty || lrc.isNotEmpty);
+
   LyricSrcEntity_c({
     HashMap<String, dynamic>? info,
     List<LyricSrcItemEntity_c>? lrc,
+    this.timeType = LyricTimeType_e.Unknown,
   })  : info = info ?? s_createInfo(),
         lrc = lrc ?? [];
 
@@ -158,11 +198,59 @@ class LyricSrcEntity_c {
     );
   }
 
-  /// ## 是否 信息[info] 和 歌词[lrc] 都为空
-  bool get isEmpty => (info.isEmpty && lrc.isEmpty);
+  /// 歌曲标题
+  String? get info_ti => getInfoItemWithString(KEY_ti);
 
-  /// ## 是否 信息[info] 和 歌词[lrc] 中至少一方非空
-  bool get isNotEmpty => (info.isNotEmpty || lrc.isNotEmpty);
+  /// 艺术家
+  String? get info_ar => getInfoItemWithString(KEY_ar);
+
+  /// 专辑名称
+  String? get info_al => getInfoItemWithString(KEY_al);
+
+  /// LRC作者，指制作该LRC歌词的人
+  String? get info_by => getInfoItemWithString(KEY_by);
+
+  /// 针对整体歌词时间的偏移量，单位毫秒ms
+  double? get info_offset {
+    final result = getInfoItemWithString(KEY_offset);
+    if (null == result) {
+      return null;
+    }
+    return double.tryParse(result);
+  }
+
+  /// 创建此LRC文件的播放器或编辑器
+  String? get info_re => getInfoItemWithString(KEY_re);
+
+  /// 程序的版本
+  String? get info_ve => getInfoItemWithString(KEY_ve);
+
+  /// ## 根据 [key] 查找对应的信息
+  /// * 不存在或非 [String] 类型时返回 [Null]
+  String? getInfoItemWithString(String key) {
+    final result = info[key];
+    return (result is String) ? result : null;
+  }
+
+  /// ## 根据 [index] 获取lrc单项
+  /// * 当 [index] 越界时返回 [Null]
+  LyricSrcItemEntity_c? getLrcItemByIndex(int index) {
+    if (index < 0 || index >= lrc.length) {
+      return null;
+    }
+    return lrc[index];
+  }
+
+  /// 根据 [lrc] 更新 [timeType]
+  void updateTimeType() {
+    timeType = LyricTimeType_e.Line;
+    for (final item in lrc) {
+      if (item.isVerbatimTime) {
+        timeType = LyricTimeType_e.Verbatim;
+        break;
+      }
+    }
+  }
 
   /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的原文
   bool isTranslate_original(int index) {
@@ -217,54 +305,14 @@ class LyricSrcEntity_c {
         ));
   }
 
-  /// 歌曲标题
-  String? get info_ti => getInfoItemWithString(KEY_ti);
-
-  /// 艺术家
-  String? get info_ar => getInfoItemWithString(KEY_ar);
-
-  /// 专辑名称
-  String? get info_al => getInfoItemWithString(KEY_al);
-
-  /// LRC作者，指制作该LRC歌词的人
-  String? get info_by => getInfoItemWithString(KEY_by);
-
-  /// 针对整体歌词时间的偏移量，单位毫秒ms
-  double? get info_offset {
-    final result = getInfoItemWithString(KEY_offset);
-    if (null == result) {
-      return null;
-    }
-    return double.tryParse(result);
-  }
-
-  /// 创建此LRC文件的播放器或编辑器
-  String? get info_re => getInfoItemWithString(KEY_re);
-
-  /// 程序的版本
-  String? get info_ve => getInfoItemWithString(KEY_ve);
-
-  /// ## 根据 [key] 查找对应的信息
-  /// * 不存在或非 [String] 类型时返回 [Null]
-  String? getInfoItemWithString(String key) {
-    final result = info[key];
-    return (result is String) ? result : null;
-  }
-
-  /// ## 根据 [index] 获取lrc单项
-  /// * 当 [index] 越界时返回 [Null]
-  LyricSrcItemEntity_c? getLrcItemByIndex(int index) {
-    if (index < 0 || index >= lrc.length) {
-      return null;
-    }
-    return lrc[index];
-  }
-
   factory LyricSrcEntity_c.fromJson(Map<String, dynamic> json) {
     if (json.isEmpty) {
       return LyricSrcEntity_c();
     }
-    final resrc = LyricSrcEntity_c();
+    final resrc = LyricSrcEntity_c(
+      timeType:
+          LyricTimeType_c.toEnum(json["timeType"]) ?? LyricTimeType_e.Unknown,
+    );
     // lrc
     final lrc = json["lrc"];
     List? list;
@@ -293,25 +341,31 @@ class LyricSrcEntity_c {
 
   Map<String, dynamic> toJson() {
     final remap = <String, dynamic>{};
-    // 将 [info] 和 [lrc]合并到一个map中
+    // 将 [info] 和 [lrc] 合并到一个map中
     info.forEach((key, value) {
       if (key != "lrc") {
         remap[key] = value;
       }
     });
     remap["lrc"] = lrc;
+    remap["timeType"] = LyricTimeType_c.toInt(timeType);
     return remap;
   }
 
   LyricSrcEntity_c copyWith({
+    LyricTimeType_e? timeType,
     HashMap<String, dynamic>? info,
     List<LyricSrcItemEntity_c>? lrc,
   }) {
     final reSrc = LyricSrcEntity_c(
       info: info ?? this.info,
+      timeType: timeType ?? this.timeType,
     );
     if (null != lrc) {
       reSrc.lrc = lrc;
+      if (null == timeType) {
+        reSrc.updateTimeType();
+      }
     } else {
       for (int i = 0, len = this.lrc.length; i < len; ++i) {
         reSrc.lrc.add(this.lrc[i].copyWith());
@@ -687,11 +741,15 @@ class Lyricxx_c {
       for (final line in relist) {
         switch (line.type) {
           case _ParseLyricType_e.Lrc:
-            lrcObj.lrc.add(LyricSrcItemEntity_c(
+            final item = LyricSrcItemEntity_c(
               time: line.time ?? -1,
               content: line.content,
               timelist: line.timelist,
-            ));
+            );
+            lrcObj.lrc.add(item);
+            if (item.isVerbatimTime) {
+              lrcObj.timeType = LyricTimeType_e.Verbatim;
+            }
             break;
           case _ParseLyricType_e.Info:
             if (true == line.infoKey?.isNotEmpty &&

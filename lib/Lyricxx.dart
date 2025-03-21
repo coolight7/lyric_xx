@@ -797,8 +797,25 @@ class Lyricxx_c {
   }
 
   /// 将 [lrclist] 编码为 lrc 规范的字符串，以便保存回 .lrc 文件
-  static String encodeLrcString(List<LyricSrcItemEntity_c> lrclist) {
+  static String encodeLrcString(
+    List<LyricSrcItemEntity_c> lrclist, {
+    Map<String, dynamic>? info,
+  }) {
     var data = "";
+    if (null != info) {
+      for (final item in info.entries) {
+        final key = StringUtilxx_c.removeBetweenSpaceMayNull(
+          item.key.replaceAll(RegExp(r'\r|\n|:|\[|\]'), ''),
+        );
+        final value = StringUtilxx_c.removeBetweenSpaceMayNull(
+          item.value.toString().replaceAll(RegExp(r'\r|\n|:|\[|\]'), ''),
+        );
+        if (key != null && value != null) {
+          data += "[${key}:${value}]\n";
+        }
+      }
+      print(data);
+    }
     for (int i = 0, len = lrclist.length; i < len; ++i) {
       data += "[${lrclist[i].timeStr}]${lrclist[i].content}\n";
     }

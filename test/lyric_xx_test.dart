@@ -5,6 +5,7 @@ import 'package:lyric_xx/lyric_xx.dart';
 
 void main() {
   test_info_ignoreCase();
+  test_encode();
   test_LyricSrcEntity_c();
   test_parse();
 }
@@ -20,6 +21,37 @@ void test_info_ignoreCase() {
     expect(lyric.info["hello"], "WORLD");
     expect(lyric.info["WOW"], "value");
     expect(lyric.info["wow"], "value");
+  });
+}
+
+void test_encode() {
+  test("歌词信息 encode", () {
+    final lyric = LyricSrcEntity_c();
+    lyric.info["offset"] = 0;
+    lyric.info["wo\nw"] = "niu :bi";
+    lyric.info["tt:x"] = "niu \rbi";
+    lyric.info["   tt:[j"] = "niu] \r\nbi  ";
+    expect(
+        Lyricxx_c.encodeLrcString(
+          [
+            LyricSrcItemEntity_c(
+              time: 2,
+              content: "hello coolight",
+            ),
+            LyricSrcItemEntity_c(
+              time: 3,
+              content: "wow coolight",
+            ),
+          ],
+          info: lyric.info,
+        ),
+        """[wow:niu bi]
+[ttj:niu bi]
+[ttx:niu bi]
+[offset:0]
+[00:02.00]hello coolight
+[00:03.00]wow coolight
+""");
   });
 }
 

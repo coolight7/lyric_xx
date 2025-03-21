@@ -6,6 +6,7 @@ import 'package:lyric_xx/lyric_xx.dart';
 void main() {
   test_info_ignoreCase();
   test_encode();
+  test_offsetTime();
   test_LyricSrcEntity_c();
   test_parse();
 }
@@ -52,6 +53,180 @@ void test_encode() {
 [00:02.00]hello coolight
 [00:03.00]wow coolight
 """);
+  });
+}
+
+void test_offsetTime() {
+  test("歌词 line offset Time", () {
+    final list = [
+      LyricSrcItemEntity_c(
+        time: 2,
+        content: "hello coolight",
+      ),
+      LyricSrcItemEntity_c(
+        time: -1,
+        content: "hello coolight",
+      ),
+      LyricSrcItemEntity_c(
+        time: 3,
+        content: "wow coolight",
+      ),
+    ];
+
+    List<LyricSrcItemEntity_c> copy() {
+      return List.generate(list.length, (i) {
+        return list[i].copyWith();
+      });
+    }
+
+    void checkTime(List<LyricSrcItemEntity_c> inlist, List<double> times) {
+      expect(inlist.length, times.length);
+      for (int i = 0; i < inlist.length; ++i) {
+        expect((inlist[i].time - times[i]).abs() < 0.0001, true);
+      }
+    }
+
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, 2);
+      checkTime(lrcs, [4, -1, 5]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -1);
+      checkTime(lrcs, [1, -1, 2]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -2);
+      checkTime(lrcs, [0, -1, 1]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -3);
+      checkTime(lrcs, [0, -1, 0]);
+    }
+  });
+
+  test("歌词 word offset Time", () {
+    final list = [
+      LyricSrcItemEntity_c(
+        time: 2,
+        timelist: [
+          LyricSrcTime_c(
+            time: 2,
+            index: 0,
+          ),
+          LyricSrcTime_c(
+            time: 2.5,
+            index: 6,
+          ),
+          LyricSrcTime_c(
+            time: 2.7,
+            index: 14,
+          ),
+        ],
+        content: "hello coolight",
+      ),
+      LyricSrcItemEntity_c(
+        time: -1,
+        content: "hello coolight",
+      ),
+      LyricSrcItemEntity_c(
+        time: 3,
+        timelist: [
+          LyricSrcTime_c(
+            time: 3,
+            index: 0,
+          ),
+          LyricSrcTime_c(
+            time: 3.2,
+            index: 4,
+          ),
+          LyricSrcTime_c(
+            time: 3.7,
+            index: 12,
+          ),
+        ],
+        content: "wow coolight",
+      ),
+    ];
+
+    List<LyricSrcItemEntity_c> copy() {
+      return List.generate(list.length, (i) {
+        return list[i].copyWith();
+      });
+    }
+
+    void checkTime(
+        List<LyricSrcItemEntity_c> inlist, List<List<double>> times) {
+      expect(inlist.length, times.length);
+      print("================");
+      for (int i = 0; i < inlist.length; ++i) {
+        final timelist = inlist[i].timelist;
+        print(times[i]);
+        expect(timelist.length, times[i].length);
+        for (int j = 0; j < timelist.length; ++j) {
+          print(timelist[j].time);
+          expect((timelist[j].time - times[i][j]).abs() < 0.0001, true);
+        }
+      }
+    }
+
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, 2);
+      checkTime(lrcs, [
+        [4, 4.5, 4.7],
+        [],
+        [5, 5.2, 5.7]
+      ]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -1);
+      checkTime(lrcs, [
+        [1, 1.5, 1.7],
+        [],
+        [2, 2.2, 2.7]
+      ]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -2);
+      checkTime(lrcs, [
+        [0, 0.5, 0.7],
+        [],
+        [1, 1.2, 1.7]
+      ]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -2.5);
+      checkTime(lrcs, [
+        [0, 0, 0.2],
+        [],
+        [0.5, 0.7, 1.2]
+      ]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -3);
+      checkTime(lrcs, [
+        [0, 0, 0],
+        [],
+        [0, 0.2, 0.7]
+      ]);
+    }
+    {
+      final lrcs = copy();
+      Lyricxx_c.offsetTime(lrcs, -3.5);
+      checkTime(lrcs, [
+        [0, 0, 0],
+        [],
+        [0, 0, 0.2]
+      ]);
+    }
   });
 }
 

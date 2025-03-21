@@ -38,10 +38,10 @@ class LyricTimeType_c {
 }
 
 class LyricSrcTime_c {
-  final double time;
-  final int index;
+  double time;
+  int index;
 
-  const LyricSrcTime_c({
+  LyricSrcTime_c({
     required this.time,
     required this.index,
   });
@@ -143,10 +143,14 @@ class LyricSrcItemEntity_c {
     String? content,
     List<LyricSrcTime_c>? timelist,
   }) {
+    final list = timelist ?? this.timelist;
+    final uselist = List.generate(list.length, (i) {
+      return list[i].copyWith();
+    });
     return LyricSrcItemEntity_c(
       time: time ?? this.time,
       content: content ?? this.content,
-      timelist: timelist ?? this.timelist,
+      timelist: uselist,
     );
   }
 }
@@ -814,7 +818,6 @@ class Lyricxx_c {
           data += "[${key}:${value}]\n";
         }
       }
-      print(data);
     }
     for (int i = 0, len = lrclist.length; i < len; ++i) {
       data += "[${lrclist[i].timeStr}]${lrclist[i].content}\n";
@@ -856,8 +859,26 @@ class Lyricxx_c {
       return;
     }
     for (int i = 0; i < lrclist.length; ++i) {
-      if (lrclist[i].time > 0) {
-        lrclist[i].time += offset;
+      final line = lrclist[i];
+      if (line.time >= 0) {
+        final temp = line.time + offset;
+        if (temp >= 0) {
+          line.time = temp;
+        } else {
+          line.time = 0;
+        }
+        for (final word in line.timelist) {
+          if (word.time >= 0) {
+            final t = word.time + offset;
+            if (t >= 0) {
+              word.time = t;
+            } else {
+              word.time = 0;
+            }
+          } else {
+            break;
+          }
+        }
       }
     }
   }

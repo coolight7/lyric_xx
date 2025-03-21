@@ -1,3 +1,5 @@
+## 0.7.5
+- offsetTime、copyWidth 支持逐字时间戳
 ## 0.7.4
 - encode 支持信息，且增加字符检查
 ## 0.7.3

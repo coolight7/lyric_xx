@@ -349,11 +349,12 @@ void test_parse() {
     expect(lyric.getLrcItemByIndex(0)?.time, 27);
 
     /// 单行内连续多个时间
+    /// 忽略开头无时间的 content
     lyric = Lyricxx_c.decodeLrcString(
-      " abc  [0:27][00:37][000:47.11][00:57:33]cool",
+      " abc  [0:27][00:37][000:47.11][00:57:33]coolight",
     );
     expect(lyric.lrc.length, 4);
-    expect(lyric.getLrcItemByIndex(0)?.content, "cool");
+    expect(lyric.getLrcItemByIndex(0)?.content, "coolight");
     expect(lyric.getLrcItemByIndex(0)?.time, 27);
     expect(lyric.getLrcItemByIndex(1)?.time, 37);
     expect(lyric.getLrcItemByIndex(2)?.time, 47 + 11.0 / 100);
@@ -362,15 +363,15 @@ void test_parse() {
     // * 忽略前面没时间的abc
     // * 拆分为[00:27][00:47:33]cool和[000:37]light处理
     lyric = Lyricxx_c.decodeLrcString(
-      " abc  [00:27][00:47:33]cool [000:37]light",
+      " abc  [00:27][00:47:33]coolight [000:37] musicxx",
     );
     expect(lyric.lrc.length, 3);
-    expect(lyric.getLrcItemByIndex(0)?.content, "cool");
-    expect(lyric.getLrcItemByIndex(1)?.content, "light"); // 按时间排序
-    expect(lyric.getLrcItemByIndex(2)?.content, "cool");
+    expect(lyric.getLrcItemByIndex(0)?.content, "coolight");
+    expect(lyric.getLrcItemByIndex(1)?.content, "musicxx"); // 按时间排序
+    expect(lyric.getLrcItemByIndex(2)?.content, "coolight");
 
     lyric = Lyricxx_c.decodeLrcString(
-      " abc  [0:27][00:37][000:47.11]abc [000:50.11] [00:57:33]cool",
+      " abc  [0:27][00:37][000:47.11]coolight [000:50.11] [00:57:33]musicxx",
     );
     expect(lyric.lrc.length, 4);
 
@@ -478,8 +479,9 @@ void test_parse() {
           """[00:27.00]cool[00:27.50] [00:28.00]light[00:29.00]  wow[00:30.00]
 翻译翻译，什么叫歌词
 [00:31.00]mus ic[00:32.00]video [00:33.00]   [00:34.00]audio[00:35.00]
+--
 """);
-      expect(lyric.lrc.length, 3);
+      expect(lyric.lrc.length, 4);
       expect(lyric.getLrcItemByIndex(0)?.time, 27);
       expect(lyric.getLrcItemByIndex(0)?.content, "cool light wow");
       expect(lyric.getLrcItemByIndex(0)?.timelist, [
@@ -509,6 +511,47 @@ void test_parse() {
 翻译翻译，什么叫歌词
 [00:31.00]mus ic[00:32.00]video [00:33.00]   [00:34.00]audio[00:35.00]
 [00:41.00]mus< ic<00:42.00>vid>eo [00:43.00] <>  <00:44.00>au[]dio[00:45.00]
+""");
+      expect(lyric.lrc.length, 4);
+      expect(lyric.getLrcItemByIndex(0)?.time, 27);
+      expect(lyric.getLrcItemByIndex(0)?.content, "cool light wow");
+      expect(lyric.getLrcItemByIndex(0)?.timelist, [
+        LyricSrcTime_c(time: 27, index: 0),
+        LyricSrcTime_c(time: 27.5, index: 4),
+        LyricSrcTime_c(time: 28, index: 5),
+        LyricSrcTime_c(time: 29, index: 10),
+        LyricSrcTime_c(time: 30, index: 14),
+      ]);
+      expect(lyric.getLrcItemByIndex(1)?.time, -1);
+      expect(lyric.getLrcItemByIndex(1)?.content, "翻译翻译，什么叫歌词");
+      expect(lyric.getLrcItemByIndex(1)?.timelist.isEmpty, true);
+      expect(lyric.getLrcItemByIndex(2)?.time, 31);
+      expect(lyric.getLrcItemByIndex(2)?.content, "mus icvideo  audio");
+      expect(lyric.getLrcItemByIndex(2)?.timelist, [
+        LyricSrcTime_c(time: 31, index: 0),
+        LyricSrcTime_c(time: 32, index: 6),
+        LyricSrcTime_c(time: 33, index: 12),
+        LyricSrcTime_c(time: 34, index: 13),
+        LyricSrcTime_c(time: 35, index: 18),
+      ]);
+      expect(lyric.getLrcItemByIndex(3)?.time, 41);
+      expect(lyric.getLrcItemByIndex(3)?.content, "mus< icvid>eo  <> au[]dio");
+      expect(lyric.getLrcItemByIndex(3)?.timelist, [
+        LyricSrcTime_c(time: 41, index: 0),
+        LyricSrcTime_c(time: 42, index: 7),
+        LyricSrcTime_c(time: 43, index: 14),
+        LyricSrcTime_c(time: 44, index: 18),
+        LyricSrcTime_c(time: 45, index: 25),
+      ]);
+    }
+    {
+      // 逐字歌词，混合两种时间戳表示，且忽略重复时间戳，只保留最后一个
+      // 移除逐字歌词最开头和末尾的空白符号
+      lyric = Lyricxx_c.decodeLrcString(
+          """[00:27.00]  cool<00:27.50> <00:28.00>light<00:29.00>  wow  <00:30.00>
+翻译翻译，什么叫歌词
+[00:31.00] mus ic<00:31.50>[00:32.00]video [00:33.00]   [00:34.00]audio  [00:35.00]
+<00:40.50>[00:41.00]mus< ic<00:42.00>vid>eo [00:43.00] <>  <00:44.00>au[]dio[00:45.00]
 """);
       expect(lyric.lrc.length, 4);
       expect(lyric.getLrcItemByIndex(0)?.time, 27);

@@ -519,14 +519,19 @@ class Lyricxx_c {
       final relist = <_ParseLyricObj_c>[];
       // 记录最近的一行歌词项，用于附加逐字歌词
       _ParseLyricObj_c? lastLrcItem;
-      // 将[line]按时间戳、内容分段保持顺序存入[resultList]
-      final resultList = <_ParseLyricTagItem_c>[];
       // 记录上一次操作的尾部坐标
       int lastIndex = 0;
+      // 将[line]按`时间戳`、`内容`分段保持顺序存入[resultList]
+      final resultList = <_ParseLyricTagItem_c>[];
+      // 单行包含多个时间且不连续时，可能是`逐字歌词`或是`不换行歌词`
+      bool maybeHasWordTime = false;
       for (final item in result) {
         final start = item.start;
         final end = item.end;
         if (start > lastIndex) {
+          if (lastIndex != 0) {
+            maybeHasWordTime = (result.length > 1);
+          }
           // [item]之前有[content]
           // 截取[content]加入分段列表
           final content = removeBetweenSpaceSaveOne(line.substring(
@@ -563,28 +568,39 @@ class Lyricxx_c {
           )),
         ));
       }
+
+      // 遍历 [resultList] 解析歌词行
       // 记录过往最近的一个[content]，辅助后置时间戳使用
       String? last_content;
-      // 记录当前时间戳是否是连续时间戳之一
-      bool currentIsContinuousTimeTag = false;
+      // 记录当前时间戳是否是连续时间戳的开头或中间
+      bool currentIsContinuousTimeTagSM = false;
+      //  记录当前时间戳是否是连续时间戳的结尾
+      // ignore: unused_local_variable
+      bool currentIsContinuousTimeTagEnd = false;
       for (int i = 0; i < resultList.length; ++i) {
         final item = resultList[i];
         if (null != item.timeTag) {
           // 是时间戳 [timeTag]
-          // 先从[item]的位置向右寻找第一个歌词内容，如果没有则从[item]的位置向左寻找
           String? content;
-          bool isWordTime = true;
+          bool isWordTime = maybeHasWordTime;
+          // 先从[item]的位置向右寻找第一个歌词内容，如果没有则从[item]的位置向左寻找
           for (int j = i + 1; j < resultList.length; ++j) {
             final current = resultList[j];
             if (null != current.content) {
               // 找到最近的歌词内容
               if (i + 1 != j) {
                 // 歌词时间和内容不相邻
-                isWordTime = false;
-                currentIsContinuousTimeTag = true;
-              } else if (currentIsContinuousTimeTag) {
+                currentIsContinuousTimeTagSM = true;
+                currentIsContinuousTimeTagEnd = false;
+                // isWordTime = false;
+              } else if (currentIsContinuousTimeTagSM) {
                 // 当前时间戳和内容是相邻，但时间戳和之前的时间戳是连续
-                isWordTime = false;
+                currentIsContinuousTimeTagSM = false;
+                currentIsContinuousTimeTagEnd = true;
+                // isWordTime = false;
+              } else {
+                currentIsContinuousTimeTagSM = false;
+                currentIsContinuousTimeTagEnd = false;
               }
               content = current.content;
               break;
@@ -607,7 +623,12 @@ class Lyricxx_c {
             // 再次判断，尝试自动区分逐字歌词和逐行歌词
             isWordTime = (content.length <= tryAutoDistinguishLength);
           }
-          if (false == isWordTime) {
+          if (isWordTime) {
+            if (currentIsContinuousTimeTagSM) {
+              // 逐字歌词不允许连续时间戳
+              continue;
+            }
+          } else {
             // 逐行歌词不要保留两边的空白符号，再次削减两边的空白符号
             content = StringUtilxx_c.removeBetweenSpace(content);
           }
@@ -645,6 +666,16 @@ class Lyricxx_c {
           if (isWordTime) {
             if (null == lastLrcItem) {
               // 逐字歌词的开头
+              if (content.isNotEmpty) {
+                // 移除开头空白符号
+                content = StringUtilxx_c.removeBetweenSpaceMayNull(
+                  content,
+                  subRight: false,
+                );
+                if (null == content) {
+                  continue;
+                }
+              }
               lastLrcItem = _ParseLyricObj_c(
                   type: _ParseLyricType_e.Lrc,
                   content: content,
@@ -658,6 +689,16 @@ class Lyricxx_c {
               relist.add(lastLrcItem);
             } else {
               // 附加内容到前面的逐字歌词中, 并记录起始时间
+              if (content.isNotEmpty &&
+                  (resultList.length - 3) == i &&
+                  null != resultList.last.timeTag) {
+                // 如果这是最后一个 content，则移除末尾空白符号
+                content = StringUtilxx_c.removeBetweenSpaceMayNull(
+                      content,
+                      subLeft: false,
+                    ) ??
+                    ' ';
+              }
               lastLrcItem.timelist.add(LyricSrcTime_c(
                 time: time,
                 index: lastLrcItem.content.length,
@@ -672,12 +713,12 @@ class Lyricxx_c {
               time: time,
             ));
           }
-          currentIsContinuousTimeTag = true;
         } else {
-          currentIsContinuousTimeTag = false;
+          currentIsContinuousTimeTagSM = false;
+          currentIsContinuousTimeTagEnd = false;
           // 是歌词内容 [content]
           last_content = (null != item.content)
-              ? StringUtilxx_c.removeBetweenSpace(item.content!)
+              ? StringUtilxx_c.removeBetweenSpaceMayNull(item.content!)
               : null;
         }
       }

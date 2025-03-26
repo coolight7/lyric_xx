@@ -309,10 +309,10 @@ packages:
     dependency: "direct main"
     description:
       name: string_util_xx
-      sha256: f87a187e5f060a4245d48b93b24b34352bf9a9919de643b6ac79c7f3f37caa49
+      sha256: e1c28a4d99ceacab62b5c396c2f95694af32ff41ac2958b68af00cf6a0a5014c
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.2.3"
+    version: "0.2.4"
   term_glyph:
     dependency: transitive
     description:

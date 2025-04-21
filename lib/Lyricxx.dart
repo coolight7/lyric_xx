@@ -856,7 +856,7 @@ class Lyricxx_c {
           item.value.toString().replaceAll(RegExp(r'\r|\n|:|\[|\]'), ''),
         );
         if (key != null && value != null) {
-          data += "[${key}:${value}]\n";
+          data += "[$key:$value]\n";
         }
       }
     }

@@ -95,9 +95,10 @@ class LyricSrcItemEntity_c {
 
   List<LyricSrcTime_c> timelist;
 
-  // 这一行是否为逐字歌词
+  /// 这一行是否为逐字歌词
   bool get isVerbatimTime => (timelist.length > 1);
-  // 这一行是否为逐行歌词
+
+  /// 这一行是否为逐行歌词
   bool get isLineTime => (false == isVerbatimTime);
 
   LyricSrcItemEntity_c({
@@ -245,7 +246,7 @@ class LyricSrcEntity_c {
     return lrc[index];
   }
 
-  /// 根据 [lrc] 更新 [timeType]
+  /// - 根据 [lrc] 更新 [timeType]
   void updateTimeType() {
     timeType = LyricTimeType_e.Line;
     for (final item in lrc) {
@@ -415,6 +416,8 @@ class _ParseLyricTagItem_c {
 }
 
 class Lyricxx_c {
+  Lyricxx_c._();
+
   /// 移除字符串两边的空白符号，两边各保留一个
   static String removeBetweenSpaceSaveOne(
     String str, {

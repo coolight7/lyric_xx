@@ -248,11 +248,13 @@ class LyricSrcEntity_c {
 
   /// - 根据 [lrc] 更新 [timeType]
   void updateTimeType() {
-    timeType = LyricTimeType_e.Line;
+    timeType = LyricTimeType_e.Unknown;
     for (final item in lrc) {
       if (item.isVerbatimTime) {
         timeType = LyricTimeType_e.Verbatim;
         break;
+      } else if (item.time > 0) {
+        timeType = LyricTimeType_e.Line;
       }
     }
   }

@@ -230,6 +230,25 @@ class LyricSrcEntity_c {
   /// 程序的版本
   String? get info_ve => getInfoItemWithString(KEY_ve);
 
+  String? get info_title_Artist {
+    String? infoName = StringUtilxx_c.removeBetweenSpaceMayNull(
+      info_ti,
+    );
+    if (null != infoName) {
+      if (infoName.isEmpty) {
+        infoName = null;
+      } else {
+        final infoAritist = StringUtilxx_c.removeBetweenSpaceMayNull(
+          info_ar,
+        );
+        if (null != infoAritist && infoAritist.isNotEmpty) {
+          infoName = "$infoName - $infoAritist";
+        }
+      }
+    }
+    return infoName;
+  }
+
   /// ## 根据 [key] 查找对应的信息
   /// * 不存在或非 [String] 类型时返回 [Null]
   String? getInfoItemWithString(String key) {

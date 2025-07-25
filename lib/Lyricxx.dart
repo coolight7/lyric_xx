@@ -810,6 +810,10 @@ class Lyricxx_c {
       for (final line in relist) {
         switch (line.type) {
           case _ParseLyricType_e.Lrc:
+            if ('//' == line.content) {
+              // 排除部分无效行
+              continue;
+            }
             final item = LyricSrcItemEntity_c(
               time: line.time ?? -1,
               content: line.content,

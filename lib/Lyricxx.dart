@@ -331,7 +331,7 @@ class LyricSrcEntity_c {
         ));
   }
 
-  factory LyricSrcEntity_c.fromJson(Map<String, dynamic> json) {
+  factory LyricSrcEntity_c.fromJson(Map json) {
     if (json.isEmpty) {
       return LyricSrcEntity_c();
     }

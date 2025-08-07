@@ -206,7 +206,7 @@ class LyricSrcEntity_c {
   /// 歌曲标题
   String? get info_ti => getInfoItemWithString(KEY_ti);
 
-  /// 艺术家
+  /// 歌手
   String? get info_ar => getInfoItemWithString(KEY_ar);
 
   /// 专辑名称

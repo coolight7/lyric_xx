@@ -874,7 +874,7 @@ class Lyricxx_c {
     List<LyricSrcItemEntity_c> lrclist, {
     Map<String, dynamic>? info,
   }) {
-    var data = "";
+    var data = StringBuffer();
     if (null != info) {
       for (final item in info.entries) {
         final key = StringUtilxx_c.removeBetweenSpaceMayNull(
@@ -884,14 +884,14 @@ class Lyricxx_c {
           item.value.toString().replaceAll(RegExp(r'\r|\n|:|\[|\]'), ''),
         );
         if (key != null && value != null) {
-          data += "[$key:$value]\n";
+          data.write("[$key:$value]\n");
         }
       }
     }
     for (int i = 0, len = lrclist.length; i < len; ++i) {
-      data += "[${lrclist[i].timeStr}]${lrclist[i].content}\n";
+      data.write("[${lrclist[i].timeStr}]${lrclist[i].content}\n");
     }
-    return data;
+    return data.toString();
   }
 
   /// * 将 [in_second] 转为 [HH:]MM:SS.(MS/10) 时间格式字符串
@@ -903,20 +903,20 @@ class Lyricxx_c {
       var minute = in_second ~/ 60;
       var second = in_second.toInt() % 60;
       var msecond = in_second * 1000 % 1000 ~/ 10;
-      String restr = "";
+      final restr = StringBuffer();
       if (minute < 10) {
-        restr += "0";
+        restr.write("0");
       }
-      restr += "$minute:";
+      restr.write("$minute:");
       if (second < 10) {
-        restr += "0";
+        restr.write("0");
       }
-      restr += "$second.";
+      restr.write("$second.");
       if (msecond < 10) {
-        restr += "0";
+        restr.write("0");
       }
-      restr += msecond.toString();
-      return restr;
+      restr.write(msecond.toString());
+      return restr.toString();
     } else {
       return "00:00.00";
     }

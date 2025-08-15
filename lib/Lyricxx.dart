@@ -446,7 +446,7 @@ class Lyricxx_c {
   Lyricxx_c._();
 
   static bool defLimitContent(String content) {
-    return defLimitContentSet.contains(content);
+    return false == defLimitContentSet.contains(content);
   }
 
   /// 移除字符串两边的空白符号，两边各保留一个

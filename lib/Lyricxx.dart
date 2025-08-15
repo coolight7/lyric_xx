@@ -437,7 +437,17 @@ class _ParseLyricTagItem_c {
 }
 
 class Lyricxx_c {
+  static final defLimitContentSet = <String>{
+    "//",
+    "/",
+    "null",
+  };
+
   Lyricxx_c._();
+
+  static bool defLimitContent(String content) {
+    return defLimitContentSet.contains(content);
+  }
 
   /// 移除字符串两边的空白符号，两边各保留一个
   static String removeBetweenSpaceSaveOne(
@@ -785,6 +795,7 @@ class Lyricxx_c {
     bool removeEmptyLine = true,
     bool parseHtmlEscape = true,
     bool Function(String typeStr)? limitInfoType,
+    bool Function(String content)? limitContent = defLimitContent,
   }) {
     final lrcObj = LyricSrcEntity_c();
     // 按行切割
@@ -810,7 +821,7 @@ class Lyricxx_c {
       for (final line in relist) {
         switch (line.type) {
           case _ParseLyricType_e.Lrc:
-            if ('//' == line.content) {
+            if (limitContent?.call(line.content) == false) {
               // 排除部分无效行
               continue;
             }

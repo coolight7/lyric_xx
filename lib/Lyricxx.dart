@@ -99,7 +99,7 @@ class LyricSrcItemEntity_c {
   List<LyricSrcTime_c>? get maySimulateTimelist {
     if (timelist.length >= 2) {
       return timelist;
-    } else if (canSimulateVerbatim) {
+    } else if (canSimulateVerbatimTime) {
       return (content.length > 2)
           ? [
               LyricSrcTime_c(time: time, index: 0),
@@ -120,10 +120,12 @@ class LyricSrcItemEntity_c {
   /// - 不存储 toJson
   double? nextLineTime;
 
-  bool get canSimulateVerbatim => (null != nextLineTime && time >= 0);
+  bool get canSimulateVerbatimTime => (null != nextLineTime && time >= 0);
+
+  bool get isRealVerbatimTime => (timelist.length > 1);
 
   /// 这一行是否为逐字歌词
-  bool get isVerbatimTime => (timelist.length > 1 || canSimulateVerbatim);
+  bool get isVerbatimTime => (isRealVerbatimTime || canSimulateVerbatimTime);
 
   /// 这一行是否为逐行歌词
   bool get isLineTime => (false == isVerbatimTime);
@@ -326,9 +328,10 @@ class LyricSrcEntity_c {
   }
 
   void simulateVerbatim() {
-    if (timeType != LyricTimeType_e.Verbatim) {
-      double? lastTime;
-      for (int i = lrc.length - 1; i >= 0; --i) {
+    // if (timeType != LyricTimeType_e.Verbatim) {}
+    double? lastTime;
+    for (int i = lrc.length - 1; i >= 0; --i) {
+      if (false == lrc[i].isRealVerbatimTime) {
         lrc[i].nextLineTime = lastTime;
         final time = lrc[i].time;
         if (time > 0 && i > 0 && time != lrc[i - 1].time) {

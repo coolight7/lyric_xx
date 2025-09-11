@@ -2,6 +2,7 @@
 
 import 'dart:collection';
 import 'dart:convert' as convert;
+import 'dart:math' as math;
 import 'package:html_unescape_xx/html_unescape.dart';
 import 'package:string_util_xx/string_util_xx.dart';
 import 'package:util_xx/util_xx.dart';
@@ -95,8 +96,34 @@ class LyricSrcItemEntity_c {
 
   List<LyricSrcTime_c> timelist;
 
+  List<LyricSrcTime_c>? get maySimulateTimelist {
+    if (timelist.length >= 2) {
+      return timelist;
+    } else if (canSimulateVerbatim) {
+      return (content.length > 2)
+          ? [
+              LyricSrcTime_c(time: time, index: 0),
+              LyricSrcTime_c(
+                  time: nextLineTime! -
+                      math.min((nextLineTime! - time) * 0.1, 0.7),
+                  index: content.length),
+            ]
+          : [
+              LyricSrcTime_c(time: time, index: 0),
+              LyricSrcTime_c(time: nextLineTime!, index: content.length),
+            ];
+    }
+    return null;
+  }
+
+  /// 下一行的时间，可用于模拟逐字歌词
+  /// - 不存储 toJson
+  double? nextLineTime;
+
+  bool get canSimulateVerbatim => (null != nextLineTime && time >= 0);
+
   /// 这一行是否为逐字歌词
-  bool get isVerbatimTime => (timelist.length > 1);
+  bool get isVerbatimTime => (timelist.length > 1 || canSimulateVerbatim);
 
   /// 这一行是否为逐行歌词
   bool get isLineTime => (false == isVerbatimTime);
@@ -104,6 +131,7 @@ class LyricSrcItemEntity_c {
   LyricSrcItemEntity_c({
     this.time = 0,
     this.content = "",
+    this.nextLineTime,
     List<LyricSrcTime_c>? timelist,
   }) : timelist = timelist ?? [];
 
@@ -118,8 +146,18 @@ class LyricSrcItemEntity_c {
     } else if (json_time is int) {
       time = json_time.toDouble();
     }
+    final json_nextLineTime = json["nextLineTime"];
+    double? nextLineTime;
+    if (null != json_nextLineTime) {
+      if (json_nextLineTime is double) {
+        nextLineTime = json_nextLineTime;
+      } else if (json_nextLineTime is int) {
+        nextLineTime = json_nextLineTime.toDouble();
+      }
+    }
     final result = LyricSrcItemEntity_c(
       time: time,
+      nextLineTime: nextLineTime,
       content: json["content"] ?? "",
     );
     final list = json["timelist"];
@@ -136,6 +174,15 @@ class LyricSrcItemEntity_c {
       "time": time,
       "content": content,
       if (timelist.isNotEmpty) "timelist": timelist,
+    };
+  }
+
+  Map<String, dynamic> toJsonAppendSimulateTime() {
+    return <String, dynamic>{
+      "time": time,
+      "content": content,
+      if (timelist.isNotEmpty) "timelist": timelist,
+      if (null != nextLineTime) "nextLineTime": nextLineTime,
     };
   }
 
@@ -278,6 +325,19 @@ class LyricSrcEntity_c {
     }
   }
 
+  void simulateVerbatim() {
+    if (timeType != LyricTimeType_e.Verbatim) {
+      double? lastTime;
+      for (int i = lrc.length - 1; i >= 0; --i) {
+        lrc[i].nextLineTime = lastTime;
+        final time = lrc[i].time;
+        if (time > 0 && i > 0 && time != lrc[i - 1].time) {
+          lastTime = time;
+        }
+      }
+    }
+  }
+
   /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的原文
   bool isTranslate_original(int index) {
     return ((index + 1) < lrc.length &&
@@ -365,7 +425,9 @@ class LyricSrcEntity_c {
     return resrc;
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({
+    bool appendSimulateTime = false,
+  }) {
     final remap = <String, dynamic>{};
     // 将 [info] 和 [lrc] 合并到一个map中
     info.forEach((key, value) {
@@ -373,7 +435,13 @@ class LyricSrcEntity_c {
         remap[key] = value;
       }
     });
-    remap["lrc"] = lrc;
+    if (appendSimulateTime) {
+      remap["lrc"] = List.generate(lrc.length, (i) {
+        return lrc[i].toJsonAppendSimulateTime();
+      });
+    } else {
+      remap["lrc"] = lrc;
+    }
     remap["timeType"] = LyricTimeType_c.toInt(timeType);
     return remap;
   }

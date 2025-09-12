@@ -359,7 +359,6 @@ class LyricSrcEntity_c {
           lastTime = time;
         }
       }
-      print(lrc[i].toJsonAppendSimulateTime());
     }
   }
 

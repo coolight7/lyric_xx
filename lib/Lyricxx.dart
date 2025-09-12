@@ -100,27 +100,30 @@ class LyricSrcItemEntity_c {
     if (timelist.length >= 2) {
       return timelist;
     } else if (canSimulateVerbatimTime) {
+      final useTime = simulateStart ?? time;
       return (content.length > 2)
           ? [
-              LyricSrcTime_c(time: time, index: 0),
+              LyricSrcTime_c(time: useTime, index: 0),
               LyricSrcTime_c(
-                  time: nextLineTime! -
-                      math.min((nextLineTime! - time) * 0.1, 0.7),
+                  time: simulateEnd! -
+                      math.min((simulateEnd! - useTime) * 0.1, 0.7),
                   index: content.length),
             ]
           : [
-              LyricSrcTime_c(time: time, index: 0),
-              LyricSrcTime_c(time: nextLineTime!, index: content.length),
+              LyricSrcTime_c(time: useTime, index: 0),
+              LyricSrcTime_c(time: simulateEnd!, index: content.length),
             ];
     }
     return null;
   }
 
-  /// 下一行的时间，可用于模拟逐字歌词
+  /// 可用于模拟逐字歌词
   /// - 不存储 toJson
-  double? nextLineTime;
+  /// - [simulateStart] 当 time < 0 时，翻译需要取上一行的时间，因此可以预设到 simulateStart
+  double? simulateStart, simulateEnd;
 
-  bool get canSimulateVerbatimTime => (null != nextLineTime && time >= 0);
+  bool get canSimulateVerbatimTime =>
+      ((null != simulateStart || time >= 0) && null != simulateEnd);
 
   bool get isRealVerbatimTime => (timelist.length > 1);
 
@@ -133,7 +136,8 @@ class LyricSrcItemEntity_c {
   LyricSrcItemEntity_c({
     this.time = 0,
     this.content = "",
-    this.nextLineTime,
+    this.simulateStart,
+    this.simulateEnd,
     List<LyricSrcTime_c>? timelist,
   }) : timelist = timelist ?? [];
 
@@ -148,18 +152,28 @@ class LyricSrcItemEntity_c {
     } else if (json_time is int) {
       time = json_time.toDouble();
     }
-    final json_nextLineTime = json["nextLineTime"];
-    double? nextLineTime;
-    if (null != json_nextLineTime) {
-      if (json_nextLineTime is double) {
-        nextLineTime = json_nextLineTime;
-      } else if (json_nextLineTime is int) {
-        nextLineTime = json_nextLineTime.toDouble();
+    final json_simulateStart = json["simulateStart"];
+    double? simulateStart;
+    if (null != json_simulateStart) {
+      if (json_simulateStart is double) {
+        simulateStart = json_simulateStart;
+      } else if (json_simulateStart is int) {
+        simulateStart = json_simulateStart.toDouble();
+      }
+    }
+    final json_simulateEnd = json["simulateEnd"];
+    double? simulateEnd;
+    if (null != json_simulateEnd) {
+      if (json_simulateEnd is double) {
+        simulateEnd = json_simulateEnd;
+      } else if (json_simulateEnd is int) {
+        simulateEnd = json_simulateEnd.toDouble();
       }
     }
     final result = LyricSrcItemEntity_c(
       time: time,
-      nextLineTime: nextLineTime,
+      simulateStart: simulateStart,
+      simulateEnd: simulateEnd,
       content: json["content"] ?? "",
     );
     final list = json["timelist"];
@@ -184,7 +198,8 @@ class LyricSrcItemEntity_c {
       "time": time,
       "content": content,
       if (timelist.isNotEmpty) "timelist": timelist,
-      if (null != nextLineTime) "nextLineTime": nextLineTime,
+      if (null != simulateStart) "simulateStart": simulateStart,
+      if (null != simulateEnd) "simulateEnd": simulateEnd,
     };
   }
 
@@ -329,15 +344,22 @@ class LyricSrcEntity_c {
 
   void simulateVerbatim() {
     // if (timeType != LyricTimeType_e.Verbatim) {}
-    double? lastTime;
+    double? lastTime = lrc.lastOrNull?.time;
     for (int i = lrc.length - 1; i >= 0; --i) {
       if (false == lrc[i].isRealVerbatimTime) {
-        lrc[i].nextLineTime = lastTime;
         final time = lrc[i].time;
+        lrc[i].simulateStart = (time >= 0)
+            ? time
+            : (i > 0 && lrc[i - 1].time >= 0)
+                // 翻译，时间等同上一行
+                ? lrc[i - 1].time
+                : null;
+        lrc[i].simulateEnd = lastTime;
         if (time > 0 && i > 0 && time != lrc[i - 1].time) {
           lastTime = time;
         }
       }
+      print(lrc[i].toJsonAppendSimulateTime());
     }
   }
 

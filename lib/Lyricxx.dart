@@ -42,6 +42,9 @@ class LyricSrcTime_c {
   double time;
   int index;
 
+  /// 将时间格式化为标准 lrc 格式的时间
+  String get timeStr => Lyricxx_c.formatLyricTimeStr(time);
+
   LyricSrcTime_c({
     required this.time,
     required this.index,
@@ -973,11 +976,14 @@ class Lyricxx_c {
   }
 
   /// 将 [lrclist] 编码为 lrc 规范的字符串，以便保存回 .lrc 文件
+  /// [enableWord] 如果是逐字歌词，是否编码为增强型LRC歌词
   static String encodeLrcString(
     List<LyricSrcItemEntity_c> lrclist, {
     Map<String, dynamic>? info,
+    bool enableWord = false,
   }) {
     var data = StringBuffer();
+
     if (null != info) {
       for (final item in info.entries) {
         final key = StringUtilxx_c.removeBetweenSpaceMayNull(
@@ -991,9 +997,34 @@ class Lyricxx_c {
         }
       }
     }
+
     for (int i = 0, len = lrclist.length; i < len; ++i) {
-      data.write("[${lrclist[i].timeStr}]${lrclist[i].content}\n");
+      final item = lrclist[i];
+      if (enableWord &&
+          (item.timelist.length >= 3 ||
+              (item.timelist.length >= 2 &&
+                  item.timelist.last.index != item.content.length))) {
+        // 按逐字歌词编码
+        data.write("[${item.timeStr}]<${item.timelist.first.timeStr}>");
+        for (int i = 1; i < item.timelist.length; ++i) {
+          final time = item.timelist[i];
+          if (time.index <= item.content.length) {
+            data.write(item.content.substring(
+              item.timelist[i - 1].index,
+              time.index,
+            ));
+          }
+          data.write("<${time.timeStr}>");
+          if (time.index >= item.content.length) {
+            break;
+          }
+        }
+        data.write("\n");
+      } else {
+        data.write("[${item.timeStr}]${item.content}\n");
+      }
     }
+
     return data.toString();
   }
 

@@ -1008,12 +1008,11 @@ class Lyricxx_c {
       if (enableTime) {
         final timelist =
             enableWordTimeSimulate ? item.maySimulateTimelist : item.timelist;
-
         if (enableWordTime &&
             null != timelist &&
             (timelist.length >= 3 ||
                 (timelist.length >= 2 &&
-                    timelist.last.index != item.content.length))) {
+                    timelist.last.index == item.content.length))) {
           // 按逐字歌词编码
           data.write("[${item.timeStr}]<${timelist.first.timeStr}>");
           for (int i = 1; i < timelist.length; ++i) {

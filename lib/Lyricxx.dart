@@ -977,12 +977,14 @@ class Lyricxx_c {
 
   /// 将 [lrclist] 编码为 lrc 规范的字符串，以便保存回 .lrc 文件
   /// [enableTime] 是否携带时间戳，如果为 [false] 则编码为无时间戳的文本歌词格式
-  /// [enableWord] 需要 [enableTime] 为 [true] 才有效；如果是逐字歌词，是否编码为增强型LRC歌词
+  /// [enableWordTime] 需要 [enableTime] 为 [true] 才有效；如果是逐字歌词，是否编码为增强型LRC歌词
+  /// [enableWordTimeSimulate] 是否允许引用模拟生成的逐字时间戳
   static String encodeLrcString(
     List<LyricSrcItemEntity_c> lrclist, {
     Map<String, dynamic>? info,
     bool enableTime = true,
-    bool enableWord = false,
+    bool enableWordTime = false,
+    bool enableWordTimeSimulate = false,
   }) {
     var data = StringBuffer();
 
@@ -1004,17 +1006,21 @@ class Lyricxx_c {
       final item = lrclist[i];
 
       if (enableTime) {
-        if (enableWord &&
-            (item.timelist.length >= 3 ||
-                (item.timelist.length >= 2 &&
-                    item.timelist.last.index != item.content.length))) {
+        final timelist =
+            enableWordTimeSimulate ? item.maySimulateTimelist : item.timelist;
+
+        if (enableWordTime &&
+            null != timelist &&
+            (timelist.length >= 3 ||
+                (timelist.length >= 2 &&
+                    timelist.last.index != item.content.length))) {
           // 按逐字歌词编码
-          data.write("[${item.timeStr}]<${item.timelist.first.timeStr}>");
-          for (int i = 1; i < item.timelist.length; ++i) {
-            final time = item.timelist[i];
+          data.write("[${item.timeStr}]<${timelist.first.timeStr}>");
+          for (int i = 1; i < timelist.length; ++i) {
+            final time = timelist[i];
             if (time.index <= item.content.length) {
               data.write(item.content.substring(
-                item.timelist[i - 1].index,
+                timelist[i - 1].index,
                 time.index,
               ));
             }

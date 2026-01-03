@@ -32,6 +32,7 @@ void test_encode() {
     lyric.info["wo\nw"] = "niu :bi";
     lyric.info["tt:x"] = "niu \rbi";
     lyric.info["   tt:[j"] = "niu] \r\nbi  ";
+    // hashmap 可能 info 的顺序不同
     expect(
         Lyricxx_c.encodeLrcString(
           [

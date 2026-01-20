@@ -249,6 +249,16 @@ class LyricSrcEntity_c {
   /// ## 是否 信息[info] 和 歌词[lrc] 中至少一方非空
   bool get isNotEmpty => (info.isNotEmpty || lrc.isNotEmpty);
 
+  /// ## 粗略计算 [lrc] 编码为 增强型 lrc 后的字符串总长度
+  int get lrcStdFormatLen {
+    int len = 0;
+    for (final item in lrc) {
+      // content.len + [mm:ss.ff] 默认长度 10 + 换行符 1
+      len += item.content.length + item.timelist.length * 10 + 1;
+    }
+    return len;
+  }
+
   LyricSrcEntity_c({
     HashMap<String, dynamic>? info,
     List<LyricSrcItemEntity_c>? lrc,

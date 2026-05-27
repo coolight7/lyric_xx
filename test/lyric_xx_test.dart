@@ -588,6 +588,51 @@ void test_parse() {
     }
   });
 
+  test("模拟逐字歌词", () {
+    var lyric = LyricSrcEntity_c();
+    {
+      // 由于总行数大于3，且单词长度大于5，逐字歌词，包含无时间翻译
+      lyric = Lyricxx_c.decodeLrcString("""
+[00:02.500]<00:02.500>望<00:03.300>み<00:03.540>望<00:03.930>ま<00:04.220>れ<00:04.700>て<00:04.980>こ<00:05.160>こ<00:05.490>に[00:05.730]
+[00:06.230]<00:06.230>め<00:06.390>で<00:06.880>た<00:07.090>き<00:07.340>も<00:07.510>の<00:07.830>は<00:08.070>こ<00:08.410>れ<00:08.790>に<00:09.020>あ<00:09.280>り[00:09.580]
+[00:09.920]<00:09.920>夢<00:10.260>と<00:10.800>現<00:11.740>と<00:12.080>交<00:12.670>え<00:12.870>て<00:13.140>は[00:13.370]
+[00:13.680]<00:13.680>幻想郷<00:16.069>に<00:16.989>遊<00:17.449>ぶ<00:17.719>が<00:17.979>い<00:18.239>い[00:20.359]
+
+[00:02.500]遂人愿己愿，绽放于此
+[00:06.230]如画般的景致就在这里
+[00:07.230]如画般的景致就在这里
+[00:09.920]梦与现交错之际
+[00:13.680]只消畅玩于幻想乡
+""");
+      expect(lyric.lrc.length, 9);
+      expect(lyric.getLrcItemByIndex(0)?.timelist.length, 10);
+      expect(lyric.getLrcItemByIndex(1)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(2)?.timelist.length, 13);
+      expect(lyric.getLrcItemByIndex(3)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(4)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(5)?.timelist.length, 9);
+      expect(lyric.getLrcItemByIndex(6)?.isLineTime, true);
+      expect(lyric.getLrcItemByIndex(7)?.timelist.length, 8);
+      expect(lyric.getLrcItemByIndex(8)?.isLineTime, true);
+
+      lyric.simulateVerbatim();
+      expect(lyric.getLrcItemByIndex(1)?.maySimulateTimelist?.length, 2);
+      expect(lyric.getLrcItemByIndex(1)?.simulateEnd,
+          lyric.getLrcItemByIndex(0)?.timelist.last.time);
+      expect(lyric.getLrcItemByIndex(3)?.simulateEnd,
+          lyric.getLrcItemByIndex(2)?.timelist.last.time);
+
+      // 逐行非翻译，取下一行
+      expect(lyric.getLrcItemByIndex(4)?.simulateEnd,
+          lyric.getLrcItemByIndex(5)?.timelist.first.time);
+
+      expect(lyric.getLrcItemByIndex(6)?.simulateEnd,
+          lyric.getLrcItemByIndex(5)?.timelist.last.time);
+      expect(lyric.getLrcItemByIndex(8)?.simulateEnd,
+          lyric.getLrcItemByIndex(7)?.timelist.last.time);
+    }
+  });
+
   test("翻译歌词判断", () {
     LyricSrcEntity_c lyric;
     // 同时间

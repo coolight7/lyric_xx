@@ -97,6 +97,8 @@ class LyricSrcItemEntity_c {
   /// 歌词内容
   String content = "";
 
+  /// 逐字时间戳
+  /// 如果 length >= 2，即为逐字效果
   List<LyricSrcTime_c> timelist;
 
   List<LyricSrcTime_c>? get maySimulateTimelist {
@@ -107,6 +109,7 @@ class LyricSrcItemEntity_c {
       return (content.length > 2)
           ? [
               LyricSrcTime_c(time: useTime, index: 0),
+              // 与下一行的时间留出间隔
               LyricSrcTime_c(
                   time: simulateEnd! -
                       math.min((simulateEnd! - useTime) * 0.1, 0.7),
@@ -128,7 +131,7 @@ class LyricSrcItemEntity_c {
   bool get canSimulateVerbatimTime =>
       ((null != simulateStart || time >= 0) && null != simulateEnd);
 
-  bool get isRealVerbatimTime => (timelist.length > 1);
+  bool get isRealVerbatimTime => (timelist.length >= 2);
 
   /// 这一行是否为逐字歌词
   bool get isVerbatimTime => (isRealVerbatimTime || canSimulateVerbatimTime);
@@ -357,20 +360,29 @@ class LyricSrcEntity_c {
 
   void simulateVerbatim() {
     // if (timeType != LyricTimeType_e.Verbatim) {}
-    double? lastTime = lrc.lastOrNull?.time;
+    // 倒序处理，取下一行的开始时间作为上一行的结束时间
+    double? nextLineTime = lrc.lastOrNull?.time;
     for (int i = lrc.length - 1; i >= 0; --i) {
+      final prevLrc = (i > 0) ? lrc[i - 1] : null;
+      final time = lrc[i].time;
       if (false == lrc[i].isRealVerbatimTime) {
-        final time = lrc[i].time;
         lrc[i].simulateStart = (time >= 0)
             ? time
-            : (i > 0 && lrc[i - 1].time >= 0)
-                // 翻译，时间等同上一行
-                ? lrc[i - 1].time
-                : null;
-        lrc[i].simulateEnd = lastTime;
-        if (time > 0 && i > 0 && time != lrc[i - 1].time) {
-          lastTime = time;
+            // 翻译，时间等同上一行
+            : prevLrc?.time;
+
+        // 如果上一行是逐字歌词，且当前行是翻译歌词，则优先取翻译原文行(上一行)结束时间，
+        // 否则取下一行的起始时间
+        if ((time < 0 || time == prevLrc?.time) &&
+            true == prevLrc?.isRealVerbatimTime) {
+          // 当前行是翻译歌词，且上一行是逐字歌词
+          lrc[i].simulateEnd = prevLrc?.timelist.lastOrNull?.time;
         }
+        lrc[i].simulateEnd ??= nextLineTime;
+      }
+      if (time >= 0 && time != prevLrc?.time) {
+        // 绕过翻译原文行，把真正下一行的时间带到上一行的循环中
+        nextLineTime = time;
       }
     }
   }

@@ -50,7 +50,7 @@ class LyricSrcTime_c {
     required this.index,
   });
 
-  factory LyricSrcTime_c.fromJson(Map<String, dynamic> json) {
+  factory LyricSrcTime_c.fromJson(Map json) {
     final json_time = json["time"];
     double time = 0;
     if (json_time is double) {
@@ -150,7 +150,7 @@ class LyricSrcItemEntity_c {
   /// 将时间格式化为标准 lrc 格式的时间
   String get timeStr => Lyricxx_c.formatLyricTimeStr(time);
 
-  factory LyricSrcItemEntity_c.fromJson(Map<String, dynamic> json) {
+  factory LyricSrcItemEntity_c.fromJson(Map json) {
     final json_time = json["time"];
     double time = 0;
     if (json_time is double) {

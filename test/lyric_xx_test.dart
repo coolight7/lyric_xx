@@ -1,5 +1,7 @@
 // ignore_for_file: non_constant_identifier_names
 
+import 'dart:math' as math;
+
 import 'package:test/test.dart';
 import 'package:lyric_xx/lyric_xx.dart';
 
@@ -10,6 +12,7 @@ void main() {
   test_LyricSrcEntity_c();
   test_parse();
   test_translate_group();
+  test_translate_index();
 }
 
 void test_info_ignoreCase() {
@@ -796,5 +799,113 @@ void test_translate_group() {
     // 没有译文的行取下一行的开始时间
     expect(lyric.lrc[3].simulateStart, 5.0);
     expect(lyric.lrc[3].simulateEnd, 5.0);
+  });
+}
+
+void test_translate_index() {
+  test("翻译分组索引：一次遍历的结果与逐行判定一致", () {
+    final list = <LyricSrcEntity_c>[
+      // 同一时间的多行译文
+      Lyricxx_c.decodeLrcString("""
+[00:01.00]原文
+[00:01.00]译文一
+[00:01.00]译文二
+[00:05.00]下一句
+"""),
+      // 没有时间戳的多行译文
+      Lyricxx_c.decodeLrcString("""
+[00:01.00]原文
+译文一
+译文二
+译文三
+[00:09.00]下一句
+"""),
+      // 开头没有原文行的说明行
+      Lyricxx_c.decodeLrcString("""
+说明一
+说明二
+[00:01.00]原文
+译文
+"""),
+      // 逐字原文行 + 多行译文
+      Lyricxx_c.decodeLrcString("""
+[00:01.00]<00:01.00>原<00:02.00>文
+[00:01.00]译文一
+[00:01.00]译文二
+[00:05.00]下一句
+"""),
+      // 坏数据：整份歌词同一个时间戳 / 都没有时间戳
+      Lyricxx_c.decodeLrcString("[00:01.00]a\n[00:01.00]b\n[00:01.00]c\n"),
+      Lyricxx_c.decodeLrcString("a\nb\nc\nd\n"),
+      // 单行与空歌词
+      Lyricxx_c.decodeLrcString("[00:01.00]only\n"),
+      LyricSrcEntity_c(),
+    ];
+    for (final e in list) {
+      final index = e.buildTranslateIndex();
+      expect(index.length, e.lrc.length);
+      for (int i = 0; i < e.lrc.length; ++i) {
+        final range = e.translateRange(i);
+        final reason = '行数=${e.lrc.length} 下标=$i';
+        expect(index.rangeOf(i).start, range.start, reason: reason);
+        expect(index.rangeOf(i).end, range.end, reason: reason);
+        expect(index.headOf(i), range.start, reason: reason);
+        expect(index.endOf(i), range.end, reason: reason);
+        expect(index.isTranslate(i), e.isTranslate(i), reason: reason);
+        expect(
+          index.isTranslateOriginal(i),
+          e.isTranslate_original(i),
+          reason: reason,
+        );
+      }
+      // 高亮：selectIndex 覆盖 -1 与全部行
+      for (int s = -1; s <= e.lrc.length; ++s) {
+        for (int i = 0; i < e.lrc.length; ++i) {
+          expect(
+            index.isSelect(i, s),
+            e.isSelectLrc(i, s),
+            reason: '行数=${e.lrc.length} 下标=$i 选中=$s',
+          );
+        }
+      }
+      // 越界
+      expect(index.rangeOf(-1).isValid, false);
+      expect(index.rangeOf(99).isValid, false);
+      expect(index.headOf(99), -1);
+      expect(index.isTranslate(99), false);
+    }
+    expect(LyricSrcEntity_c().buildTranslateIndex().isEmpty, true);
+  });
+
+  test("翻译分组索引：随机形状逐行一致", () {
+    final rnd = math.Random(20261008);
+    for (int round = 0; round < 300; ++round) {
+      final lrc = LyricSrcEntity_c();
+      double nextTime = 1;
+      final count = 1 + rnd.nextInt(40);
+      for (int i = 0; i < count; ++i) {
+        final r = rnd.nextInt(6);
+        double time;
+        if (r == 0) {
+          // 没有时间戳
+          time = -1;
+        } else if (r == 1 && lrc.lrc.isNotEmpty) {
+          // 与上一行相同
+          time = lrc.lrc.last.time;
+        } else {
+          nextTime += 1 + rnd.nextInt(3);
+          time = nextTime;
+        }
+        lrc.lrc.add(LyricSrcItemEntity_c(time: time, content: 'l$i'));
+      }
+      final index = lrc.buildTranslateIndex();
+      for (int i = 0; i < lrc.lrc.length; ++i) {
+        final range = lrc.translateRange(i);
+        final reason = '轮次=$round 行数=${lrc.lrc.length} 下标=$i';
+        expect(index.rangeOf(i).start, range.start, reason: reason);
+        expect(index.rangeOf(i).end, range.end, reason: reason);
+        expect(index.isTranslate(i), lrc.isTranslate(i), reason: reason);
+      }
+    }
   });
 }

@@ -3,6 +3,7 @@
 import 'dart:collection';
 import 'dart:convert' as convert;
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:html_unescape_xx/html_unescape.dart';
 import 'package:string_util_xx/string_util_xx.dart';
 import 'package:util_xx/util_xx.dart';
@@ -273,6 +274,93 @@ class LyricTranslateRange_c {
   String toString() => "LyricTranslateRange_c($start, $end)";
 }
 
+/// ## 翻译分组索引
+/// * 一次遍历整份歌词，算好每行所在翻译组的首行与末行，之后按行查询是 O(1)
+/// * 适合列表 / 级联分组这种"要连续判定很多行"的地方：坏数据（整份歌词同一个
+///   时间戳或都没有时间戳）下逐行扫描会重复走同一段，这里只走一遍
+/// * 规则与 [LyricSrcEntity_c.translateRange] 完全一致（有回归用例逐行比对两者）
+class LyricTranslateIndex_c {
+  /// 每行所在翻译组的首行下标（不在翻译组里时就是它自己）
+  final Int32List heads;
+
+  /// 每个翻译组的末行下标（只在组首行下标处有效）
+  final Int32List ends;
+
+  int get length => heads.length;
+
+  bool get isEmpty => heads.isEmpty;
+
+  bool get isNotEmpty => heads.isNotEmpty;
+
+  const LyricTranslateIndex_c._(this.heads, this.ends);
+
+  /// 空索引（没有歌词）
+  static final empty = LyricTranslateIndex_c._(Int32List(0), Int32List(0));
+
+  /// 构造（O(n)，只遍历一次）
+  static LyricTranslateIndex_c build(List<LyricSrcItemEntity_c> lrc) {
+    final length = lrc.length;
+    if (length == 0) {
+      return empty;
+    }
+    final heads = Int32List(length);
+    final ends = Int32List(length);
+    // 组首行下标，-1 表示还没遇到带时间戳的原文行
+    var head = -1;
+    for (var i = 0; i < length; ++i) {
+      final time = lrc[i].time;
+      // 译文行没有时间戳，或者与上一行时间相同
+      final sameAsPrev = (i > 0) && (time < 0 || time == lrc[i - 1].time);
+      if (head >= 0 && sameAsPrev) {
+        // 译文行：归到上一个原文行
+        heads[i] = head;
+      } else {
+        // 原文行（带时间戳）或没有可以归属的原文行，自成一个范围
+        head = (time >= 0) ? i : -1;
+        heads[i] = (head >= 0) ? head : i;
+      }
+      // 组尾跟着组内最后一行推进（heads[i] 一定是组首行或它自己）
+      ends[heads[i]] = i;
+    }
+    return LyricTranslateIndex_c._(heads, ends);
+  }
+
+  bool _avail(int index) => (index >= 0 && index < heads.length);
+
+  /// [index] 所在翻译组的首行下标（越界返回 -1）
+  int headOf(int index) => _avail(index) ? heads[index] : -1;
+
+  /// [index] 所在翻译组的末行下标（越界返回 -1）
+  int endOf(int index) => _avail(index) ? ends[heads[index]] : -1;
+
+  /// [index] 所在的翻译组
+  LyricTranslateRange_c rangeOf(int index) {
+    if (false == _avail(index)) {
+      return LyricTranslateRange_c.empty;
+    }
+    return LyricTranslateRange_c(heads[index], ends[heads[index]]);
+  }
+
+  /// [index] 是否为翻译组里的译文行
+  bool isTranslate(int index) => _avail(index) ? (heads[index] < index) : false;
+
+  /// [index] 是否为带译文的原文行
+  bool isTranslateOriginal(int index) =>
+      _avail(index) ? (heads[index] == index && ends[index] > index) : false;
+
+  /// [index] 是否属于 [selectIndex] 所在的翻译组（整组一起高亮）
+  bool isSelect(int index, int selectIndex) {
+    if (index == selectIndex) {
+      return true;
+    }
+    final head = headOf(selectIndex);
+    if (head < 0 || ends[head] <= head) {
+      return false;
+    }
+    return (index >= head && index <= ends[head]);
+  }
+}
+
 class LyricSrcEntity_c {
   static const String KEY_al = "al";
   static const String KEY_ar = "ar";
@@ -483,6 +571,14 @@ class LyricSrcEntity_c {
       ++end;
     }
     return LyricTranslateRange_c(head, end);
+  }
+
+  /// ## 一次算好整份歌词的翻译分组（O(n)）
+  /// * 规则与 [translateRange] 相同，适合列表 / 级联分组这种要连续判定很多行的地方：
+  ///   逐行调用 [translateRange] 在坏数据（很长的一段译文或整份歌词都没有时间戳）下
+  ///   会反复走同一段，这里只遍历一遍
+  LyricTranslateIndex_c buildTranslateIndex() {
+    return LyricTranslateIndex_c.build(lrc);
   }
 
   /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的原文（组内还有译文行）

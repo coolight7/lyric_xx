@@ -9,6 +9,7 @@ void main() {
   test_offsetTime();
   test_LyricSrcEntity_c();
   test_parse();
+  test_translate_group();
 }
 
 void test_info_ignoreCase() {
@@ -664,5 +665,136 @@ bbb
     expect(lyric.isTranslate(1), false);
     expect(lyric.isTranslate_original(2), true);
     expect(lyric.isTranslate(3), true);
+  });
+}
+
+void test_translate_group() {
+  test("翻译歌词分组：任意多行译文", () {
+    // 同一时间的多行译文
+    var lyric = Lyricxx_c.decodeLrcString("""
+[00:01.00]原文
+[00:01.00]译文一
+[00:01.00]译文二
+[00:05.00]下一句
+""");
+    expect(lyric.lrc.length, 4);
+    var range = lyric.translateRange(0);
+    expect(range.start, 0);
+    expect(range.end, 2);
+    expect(range.hasTranslate, true);
+    expect(range.translateCount, 2);
+    expect(range.contains(2), true);
+    expect(range.contains(3), false);
+    expect(range.isTranslate(0), false);
+    expect(range.isTranslate(1), true);
+    expect(range.isLast(2), true);
+    // 组内每一行查到的是同一组
+    for (int i = 0; i <= 2; ++i) {
+      expect(lyric.translateRange(i).start, 0);
+      expect(lyric.translateRange(i).end, 2);
+    }
+    // 原文行与全部译文行
+    expect(lyric.isTranslate_original(0), true);
+    expect(lyric.isTranslate_original(1), false);
+    expect(lyric.isTranslate_original(2), false);
+    expect(lyric.isTranslate(1), true);
+    expect(lyric.isTranslate(2), true);
+    expect(lyric.isTranslate(0), false);
+    // 单独一行自成一个范围
+    expect(lyric.translateRange(3).start, 3);
+    expect(lyric.translateRange(3).hasTranslate, false);
+    expect(lyric.isTranslate(3), false);
+    // 越界
+    expect(lyric.translateRange(-1).isValid, false);
+    expect(lyric.translateRange(99).isValid, false);
+    expect(lyric.translateRange(99).hasTranslate, false);
+
+    // 没有时间戳的多行译文
+    lyric = Lyricxx_c.decodeLrcString("""
+[00:01.00]原文
+译文一
+译文二
+译文三
+[00:09.00]下一句
+""");
+    expect(lyric.lrc.length, 5);
+    range = lyric.translateRange(1);
+    expect(range.start, 0);
+    expect(range.end, 3);
+    expect(range.translateCount, 3);
+    expect(lyric.isTranslate(2), true);
+    expect(lyric.isTranslate(3), true);
+    expect(lyric.translateRange(4).hasTranslate, false);
+
+    // 没有原文行的开头说明行不并入后面的组
+    lyric = Lyricxx_c.decodeLrcString("""
+说明一
+说明二
+[00:01.00]原文
+译文
+""");
+    expect(lyric.translateRange(0).hasTranslate, false);
+    expect(lyric.translateRange(1).hasTranslate, false);
+    expect(lyric.translateRange(2).start, 2);
+    expect(lyric.translateRange(2).end, 3);
+    expect(lyric.isTranslate(1), false);
+    expect(lyric.isTranslate(3), true);
+  });
+
+  test("翻译歌词高亮：整组一起高亮", () {
+    final lyric = Lyricxx_c.decodeLrcString("""
+[00:01.00]原文
+[00:01.00]译文一
+[00:01.00]译文二
+[00:05.00]下一句
+""");
+    // 高亮行是组内最后一行（按时间定位的结果）
+    for (int i = 0; i <= 2; ++i) {
+      expect(lyric.isSelectLrc(i, 2), true);
+    }
+    expect(lyric.isSelectLrc(3, 2), false);
+    // 高亮行是组内其它行时同样整组高亮
+    expect(lyric.isSelectLrc(1, 0), true);
+    expect(lyric.isSelectLrc(2, 0), true);
+    expect(lyric.isSelectLrc(3, 0), false);
+    expect(lyric.isSelectLrc(3, 3), true);
+    expect(lyric.isSelectLrc(0, 3), false);
+    // 原文随译文高亮
+    expect(lyric.isSelectTranslate_original(0, 2), true);
+    expect(lyric.isSelectTranslate_original(0, 3), false);
+    expect(lyric.isSelectTranslate_original(1, 2), false);
+  });
+
+  test("模拟逐字歌词：多行译文取同组原文行的时间", () {
+    // 同时间的译文
+    var lyric = Lyricxx_c.decodeLrcString("""
+[00:01.00]<00:01.00>原<00:02.00>文
+[00:01.00]译文一
+[00:01.00]译文二
+[00:05.00]下一句
+""");
+    expect(lyric.lrc.length, 4);
+    lyric.simulateVerbatim();
+    expect(lyric.lrc[1].simulateStart, 1.0);
+    expect(lyric.lrc[1].simulateEnd, 2.0);
+    // 第二行译文同样取原文行的开始与结束时间
+    expect(lyric.lrc[2].simulateStart, 1.0);
+    expect(lyric.lrc[2].simulateEnd, 2.0);
+
+    // 没有时间戳的译文
+    lyric = Lyricxx_c.decodeLrcString("""
+[00:01.00]<00:01.00>原<00:02.00>文
+译文一
+译文二
+[00:05.00]下一句
+""");
+    lyric.simulateVerbatim();
+    expect(lyric.lrc[1].simulateStart, 1.0);
+    expect(lyric.lrc[1].simulateEnd, 2.0);
+    expect(lyric.lrc[2].simulateStart, 1.0);
+    expect(lyric.lrc[2].simulateEnd, 2.0);
+    // 没有译文的行取下一行的开始时间
+    expect(lyric.lrc[3].simulateStart, 5.0);
+    expect(lyric.lrc[3].simulateEnd, 5.0);
   });
 }

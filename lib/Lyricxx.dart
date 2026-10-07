@@ -235,6 +235,44 @@ class LyricSrcItemEntity_c {
   }
 }
 
+/// ## 翻译歌词分组范围
+/// * 一组歌词 = 一行原文行（[LyricSrcItemEntity_c.time] >= 0）+ 紧随其后的若干译文行
+/// * 译文行的 [LyricSrcItemEntity_c.time] 小于 0（没有时间戳），或者与同组的上一行时间相同
+/// * 译文行数量不限，全部并入同一组（多行译文与原文合并成一组显示）
+class LyricTranslateRange_c {
+  /// 无效范围（下标越界）
+  static const empty = LyricTranslateRange_c(-1, -1);
+
+  /// 原文行下标
+  final int start;
+
+  /// 组内最后一行（译文行）下标
+  final int end;
+
+  const LyricTranslateRange_c(this.start, this.end);
+
+  /// 范围是否有效
+  bool get isValid => (start >= 0 && end >= start);
+
+  /// 组内是否有译文行
+  bool get hasTranslate => (end > start);
+
+  /// 译文行数量
+  int get translateCount => (end > start) ? (end - start) : 0;
+
+  /// [index] 是否在组内
+  bool contains(int index) => (index >= start && index <= end);
+
+  /// [index] 是否为组内的译文行（原文行之后的行）
+  bool isTranslate(int index) => (index > start && index <= end);
+
+  /// [index] 是否为组内最后一行
+  bool isLast(int index) => (index == end);
+
+  @override
+  String toString() => "LyricTranslateRange_c($start, $end)";
+}
+
 class LyricSrcEntity_c {
   static const String KEY_al = "al";
   static const String KEY_ar = "ar";
@@ -372,22 +410,30 @@ class LyricSrcEntity_c {
     // 倒序处理，取下一行的开始时间作为上一行的结束时间
     double? nextLineTime = lrc.lastOrNull?.time;
     for (int i = lrc.length - 1; i >= 0; --i) {
+      final item = lrc[i];
       final prevLrc = (i > 0) ? lrc[i - 1] : null;
-      final time = lrc[i].time;
-      if (false == lrc[i].isRealVerbatimTime) {
-        lrc[i].simulateStart = (time >= 0)
+      final time = item.time;
+      if (false == item.isRealVerbatimTime) {
+        // 译文行可能有任意多行，时间都取同组原文行的时间
+        final range = translateRange(i);
+        final isTranslate = range.isTranslate(i);
+        final original = isTranslate ? lrc[range.start] : null;
+        item.simulateStart = (time >= 0)
             ? time
-            // 翻译，时间等同上一行
-            : prevLrc?.time;
+            // 翻译，时间等同同组的原文行
+            : (original?.time ?? prevLrc?.time);
 
-        // 如果上一行是逐字歌词，且当前行是翻译歌词，则优先取翻译原文行(上一行)结束时间，
+        // 如果原文行是逐字歌词，且当前行是译文行，则优先取原文行结束时间，
         // 否则取下一行的起始时间
+        final verbatimLrc = (true == original?.isRealVerbatimTime)
+            ? original
+            : prevLrc;
         if ((time < 0 || time == prevLrc?.time) &&
-            true == prevLrc?.isRealVerbatimTime) {
-          // 当前行是翻译歌词，且上一行是逐字歌词
-          lrc[i].simulateEnd = prevLrc?.timelist.lastOrNull?.time;
+            true == verbatimLrc?.isRealVerbatimTime) {
+          // 当前行是译文行，且原文行是逐字歌词
+          item.simulateEnd = verbatimLrc?.timelist.lastOrNull?.time;
         }
-        lrc[i].simulateEnd ??= nextLineTime;
+        item.simulateEnd ??= nextLineTime;
       }
       if (time >= 0 && time != prevLrc?.time) {
         // 绕过翻译原文行，把真正下一行的时间带到上一行的循环中
@@ -396,30 +442,76 @@ class LyricSrcEntity_c {
     }
   }
 
-  /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的原文
+  /// ## 判断 [index] 和它上一行是否属于同一组歌词
+  /// * 译文行没有时间戳（[time] < 0），或者与同组的上一行时间相同
+  bool _isSameTranslateGroup(int index) {
+    if (index <= 0 || index >= lrc.length) {
+      return false;
+    }
+    final prev = lrc[index - 1];
+    final cur = lrc[index];
+    return (cur.time < 0 || cur.time == prev.time);
+  }
+
+  /// ## 向前查找 [index] 所在翻译组的原文行下标
+  /// * 返回 -1 表示 [index] 不属于任何翻译组（前面没有带时间戳的原文行）
+  int _translateHeadOf(int index) {
+    var head = index;
+    while (head > 0 && _isSameTranslateGroup(head)) {
+      --head;
+    }
+    // 组首行必须是有时间戳的原文行，否则这一段都没有可以归属的原文
+    return (lrc[head].time >= 0) ? head : -1;
+  }
+
+  /// ## 查询 [index] 所在的翻译歌词分组
+  /// * 一组由一行原文行与紧随其后的任意多行译文行组成，译文行数量不限
+  /// * [index] 不属于翻译组时，返回只包含它自己的范围
+  /// * [index] 越界时返回 [LyricTranslateRange_c.empty]
+  /// * 只扫描同组的相邻行，不遍历整份歌词，可以逐行频繁调用
+  LyricTranslateRange_c translateRange(int index) {
+    if (index < 0 || index >= lrc.length) {
+      return LyricTranslateRange_c.empty;
+    }
+    final head = _translateHeadOf(index);
+    if (head < 0) {
+      // 没有可以归属的原文行（例如开头没有时间戳的说明行）
+      return LyricTranslateRange_c(index, index);
+    }
+    var end = head;
+    while (end + 1 < lrc.length && _isSameTranslateGroup(end + 1)) {
+      ++end;
+    }
+    return LyricTranslateRange_c(head, end);
+  }
+
+  /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的原文（组内还有译文行）
   bool isTranslate_original(int index) {
-    return ((index + 1) < lrc.length &&
-        (lrc[index].time >= 0) &&
-        (lrc[index + 1].time < 0 || (lrc[index + 1].time == lrc[index].time)));
+    final range = translateRange(index);
+    return (range.isValid && range.start == index && range.hasTranslate);
   }
 
   /// ## 判断 [index] 指定的 [lrc] 是否为翻译歌词的译文
+  /// * 同组的译文行可以有任意多行，全部返回 true
   /// * [isTr_original] 前置判断 [index] 指向的不是原文，显式传入可减少判断，不指定时
   /// 会调用 [isTranslate_original] 判断
   bool isTranslate(
     int index, {
     bool? isTr_original,
   }) {
-    return (false == (isTr_original ?? isTranslate_original(index)) &&
-        ((index - 1) >= 0 &&
-            (lrc[index - 1].time >= 0) &&
-            (lrc[index].time < 0 || (lrc[index].time == lrc[index - 1].time))));
+    if (true == isTr_original) {
+      return false;
+    }
+    if (null == isTr_original && isTranslate_original(index)) {
+      return false;
+    }
+    return translateRange(index).isTranslate(index);
   }
 
   /// ## 判断 [index] 指向的位置是否是应当高亮显示的翻译歌词原文
   /// * [index] 待判断的歌词下标
   /// * [selectIndex] 应当高亮的歌词下标
-  /// * [isTr_original] 是否 [index] 是翻译歌词原文，传入可减少判断，不指定是会
+  /// * [isTr_original] 是否 [index] 是翻译歌词原文，传入可减少判断，不指定时会
   /// 调用 [isTranslate_original] 判断
   bool isSelectTranslate_original(
     int index,
@@ -427,7 +519,7 @@ class LyricSrcEntity_c {
     bool? isTr_original,
   }) {
     return (isTr_original ?? isTranslate_original(index)) &&
-        (selectIndex - index == 1);
+        (translateRange(selectIndex).contains(index));
   }
 
   /// ## 判断 [index] 指向的歌词是否应当高亮显示
@@ -436,17 +528,17 @@ class LyricSrcEntity_c {
   }
 
   /// ## 判断 [index] 指向的歌词是否应当高亮显示
+  /// * 同组的原文行与全部译文行一起高亮
   bool isSelectLrc(
     int index,
     int selectIndex, {
     bool? isTr_original,
   }) {
-    return (isSelectTranslate(index, selectIndex) ||
-        isSelectTranslate_original(
-          index,
-          selectIndex,
-          isTr_original: isTr_original,
-        ));
+    if (isSelectTranslate(index, selectIndex)) {
+      return true;
+    }
+    final range = translateRange(selectIndex);
+    return (range.hasTranslate && range.contains(index));
   }
 
   factory LyricSrcEntity_c.fromJson(Map json) {
